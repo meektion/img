@@ -91,9 +91,30 @@
 
 
 
-### Star History
+### 注意！这里有个坑
 
-[![Star History Chart](https://api.star-history.com/svg?repos=x-dr/telegraph-Image&type=Date)](https://star-history.com/#x-dr/telegraph-Image&Date)
+---
+In the Cloudflare dashboard go to your Pages project and navigate to the Functions settings page.
+
+Then, in the Compatibility Flags section for both the production and preview environments, type nodejs_compat in the input box and click on Save to apply the changes:
+
+
+### 这样解决
+
+### 操作步骤（中文版）  
+1. **登录** [Cloudflare 仪表板](https://dash.cloudflare.com/)  
+2. 进入 **Pages**，选择你的项目  
+3. 点击 **设置（Settings）** > **Functions（函数）**  
+4. 在 **兼容性标志（Compatibility Flags）** 部分，找到两个环境配置：  
+   - **生产环境（Production）**  
+   - **预览环境（Preview）**  
+5. 在这两个环境的输入框中，填写 `nodejs_compat`  
+6. 点击 **保存（Save）** 应用更改  
+
+### 作用说明  
+ 启用后，你的 Cloudflare Pages **边缘函数（Edge Functions）** 将支持部分 Node.js API（如 `Buffer`、`process` 等），方便迁移 Node.js 代码。 
+
+ ### 重试部署
 
 
 
