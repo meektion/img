@@ -10,6 +10,7 @@ export default function Table({ data: initialData = [] }) {
 
     const [data, setData] = useState(initialData); // 初始化状态
     const [modalData, setModalData] = useState(null);
+    const [deletingItem, setDeletingItem] = useState(null); // 正在删除的项目
     const modalRef = useRef(null);
 
 
@@ -53,6 +54,9 @@ export default function Table({ data: initialData = [] }) {
 
 
     const deleteItem = async (initName) => {
+        setDeletingItem(initName); // 设置正在删除
+        toast.info('正在删除...', { autoClose: 1000 });
+
         try {
             const res = await fetch(`/api/admin/delete`, {
                 method: 'DELETE',
@@ -68,16 +72,24 @@ export default function Table({ data: initialData = [] }) {
                 toast.success('删除成功!');
                 setData(prevData => prevData.filter(item => item.url !== initName));
             } else {
-                toast.error(res_data.message);
+                toast.error(res_data.message || '删除失败');
             }
         } catch (error) {
-            toast.error(error.message);
+            toast.error('网络错误: ' + error.message);
+        } finally {
+            setDeletingItem(null); // 清除删除状态
         }
     };
 
 
     const handleDelete = async (initName) => {
-        const confirmed = window.confirm('你确定要删除这个项目吗？');
+        // 如果正在删除，阻止重复操作
+        if (deletingItem) {
+            toast.warning('请等待当前删除操作完成');
+            return;
+        }
+
+        const confirmed = window.confirm('确定要删除这张图片吗？\n删除后将无法恢复！');
         if (confirmed) {
             await deleteItem(initName);
         }
@@ -276,12 +288,15 @@ export default function Table({ data: initialData = [] }) {
                                     <div className="flex flex-row justify-center">
                                         <Switcher initialChecked={item.rating} initName={item.url} />
                                         <button
-                                            onClick={() => {
-                                                handleDelete(item.url)
-                                            }}
-                                            className="ml-2 px-3 py-1 text-sm font-medium text-white bg-red-600 rounded hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50"
+                                            onClick={() => handleDelete(item.url)}
+                                            disabled={deletingItem === item.url}
+                                            className={`ml-2 px-3 py-1 text-sm font-medium text-white rounded focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50 ${
+                                                deletingItem === item.url
+                                                    ? 'bg-gray-400 cursor-not-allowed'
+                                                    : 'bg-red-600 hover:bg-red-700'
+                                            }`}
                                         >
-                                            删除
+                                            {deletingItem === item.url ? '删除中...' : '删除'}
                                         </button>
                                     </div>
                                 </td>
