@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { signOut } from "next-auth/react"
 import Image from "next/image";
 import { faImages, faTrashAlt, faUpload, faSearchPlus } from '@fortawesome/free-solid-svg-icons';
@@ -27,7 +27,6 @@ export default function Home() {
   const [uploadedImages, setUploadedImages] = useState([]);
   const [uploadedFilesNum, setUploadedFilesNum] = useState(0);
   const [selectedImage, setSelectedImage] = useState(null); // 添加状态用于跟踪选中的放大图片
-  const [activeTab, setActiveTab] = useState('preview');
   const [uploading, setUploading] = useState(false);
   const [IP, setIP] = useState('');
   const [Total, setTotal] = useState('?');
@@ -37,9 +36,6 @@ export default function Home() {
   const [boxType, setBoxtype] = useState("img");
 
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
-
-
-  const parentRef = useRef(null);
 
 
 
@@ -125,7 +121,7 @@ export default function Home() {
     }
   }
 
-  const handleFileChange = (event) => {
+  const handleFileChange = async (event) => {
     const newFiles = event.target.files;
     const filteredFiles = Array.from(newFiles).filter(file =>
       !selectedFiles.find(selFile => selFile.name === file.name));
@@ -134,7 +130,20 @@ export default function Home() {
       !uploadedImages.find(upImg => upImg.name === file.name)
     );
 
-    setSelectedFiles([...selectedFiles, ...uniqueFiles]);
+    // 转换所有图片为 WebP
+    const convertedFiles = await Promise.all(
+      uniqueFiles.map(async (file) => {
+        try {
+          return await convertToWebP(file);
+        } catch (error) {
+          console.error(`转换 ${file.name} 失败:`, error);
+          toast.error(`转换 ${file.name} 为 WebP 失败，使用原文件`);
+          return file; // 如果转换失败，使用原文件
+        }
+      })
+    );
+
+    setSelectedFiles([...selectedFiles, ...convertedFiles]);
   };
 
   const handleClear = () => {
@@ -146,6 +155,69 @@ export default function Home() {
   const getTotalSizeInMB = (files) => {
     const totalSizeInBytes = Array.from(files).reduce((acc, file) => acc + file.size, 0);
     return (totalSizeInBytes / (1024 * 1024)).toFixed(2); // 转换为MB并保留两位小数
+  };
+
+  // 将图片转换为 WebP 格式
+  const convertToWebP = async (file) => {
+    // 如果不是图片文件，直接返回原文件
+    if (!file.type.startsWith('image/')) {
+      return file;
+    }
+
+    // 如果已经是 WebP 格式，直接返回
+    if (file.type === 'image/webp') {
+      return file;
+    }
+
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+
+      reader.onload = (e) => {
+        const img = new Image();
+
+        img.onload = () => {
+          // 创建 canvas
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width;
+          canvas.height = img.height;
+
+          // 绘制图片到 canvas
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0);
+
+          // 转换为 WebP，质量设置为 0.8 (80%)
+          canvas.toBlob(
+            (blob) => {
+              if (blob) {
+                // 生成新的文件名（保留原文件名，只改扩展名）
+                const originalName = file.name.replace(/\.[^/.]+$/, '');
+                const newFile = new File([blob], `${originalName}.webp`, {
+                  type: 'image/webp',
+                  lastModified: Date.now()
+                });
+                resolve(newFile);
+              } else {
+                reject(new Error('WebP 转换失败'));
+              }
+            },
+            'image/webp',
+            0.8 // 质量参数 80%
+          );
+        };
+
+        img.onerror = () => {
+          reject(new Error('图片加载失败'));
+        };
+
+        img.src = e.target.result;
+      };
+
+      reader.onerror = () => {
+        reject(new Error('文件读取失败'));
+      };
+
+      reader.readAsDataURL(file);
+    });
   };
 
 
@@ -244,26 +316,47 @@ export default function Home() {
 
 
 
-  const handlePaste = (event) => {
+  const handlePaste = async (event) => {
     const clipboardItems = event.clipboardData.items;
 
     for (let i = 0; i < clipboardItems.length; i++) {
       const item = clipboardItems[i];
       if (item.kind === 'file' && item.type.includes('image')) {
         const file = item.getAsFile();
-        setSelectedFiles([...selectedFiles, file]);
+        try {
+          const convertedFile = await convertToWebP(file);
+          setSelectedFiles([...selectedFiles, convertedFile]);
+        } catch (error) {
+          console.error('转换粘贴的图片失败:', error);
+          toast.error('转换粘贴的图片为 WebP 失败，使用原文件');
+          setSelectedFiles([...selectedFiles, file]);
+        }
         break; // 只处理第一个文件
       }
     }
   };
 
-  const handleDrop = (event) => {
+  const handleDrop = async (event) => {
     event.preventDefault();
     const files = event.dataTransfer.files;
 
     if (files.length > 0) {
       const filteredFiles = Array.from(files).filter(file => !selectedFiles.find(selFile => selFile.name === file.name));
-      setSelectedFiles([...selectedFiles, ...filteredFiles]);
+
+      // 转换所有图片为 WebP
+      const convertedFiles = await Promise.all(
+        filteredFiles.map(async (file) => {
+          try {
+            return await convertToWebP(file);
+          } catch (error) {
+            console.error(`转换 ${file.name} 失败:`, error);
+            toast.error(`转换 ${file.name} 为 WebP 失败，使用原文件`);
+            return file; // 如果转换失败，使用原文件
+          }
+        })
+      );
+
+      setSelectedFiles([...selectedFiles, ...convertedFiles]);
     }
   };
 
@@ -309,18 +402,6 @@ export default function Home() {
       toast.error("链接复制失败")
     }
   };
-
-  const handleCopyCode = async () => {
-    const codeElements = parentRef.current.querySelectorAll('code');
-    const values = Array.from(codeElements).map(code => code.textContent);
-    try {
-      await navigator.clipboard.writeText(values.join("\n"));
-      toast.success(`链接复制成功`);
-
-    } catch (error) {
-      toast.error(`链接复制失败\n${error}`)
-    }
-  }
 
   const handlerenderImageClick = (imageUrl, type) => {
     setBoxtype(type);
@@ -372,78 +453,25 @@ export default function Home() {
   };
 
 
-  const renderTabContent = () => {
-    switch (activeTab) {
-      case 'preview':
-        return (
-          <div className=" flex flex-col ">
-            {uploadedImages.map((data, index) => (
-              <div key={index} className="m-2 rounded-2xl ring-offset-2 ring-2  ring-slate-100 flex flex-row ">
-                {renderFile(data, index)}
-                <div className="flex flex-col justify-center w-4/5">
-                  {[
-                    { text: data.url, onClick: () => handleCopy(data.url) },
-                    { text: `![${data.name}](${data.url})`, onClick: () => handleCopy(`![${data.name}](${data.url})`) },
-                    { text: `<a href="${data.url}" target="_blank"><img src="${data.url}"></a>`, onClick: () => handleCopy(`<a href="${data.url}" target="_blank"><img src="${data.url}"></a>`) },
-                    { text: `[img]${data.url}[/img]`, onClick: () => handleCopy(`[img]${data.url}[/img]`) },
-                  ].map((item, i) => (
-                    <input
-                      key={`input-${i}`}
-                      readOnly
-                      value={item.text}
-                      onClick={item.onClick}
-                      className="px-3 my-1 py-2 border border-gray-300 rounded-lg bg-white text-sm text-gray-800 focus:outline-none placeholder-gray-400"
-                    />
-                  ))}
-                </div>
-              </div>
-
-            ))}
+  const renderUploadedImages = () => {
+    return (
+      <div className="flex flex-col">
+        {uploadedImages.map((data, index) => (
+          <div key={index} className="m-2 rounded-2xl ring-offset-2 ring-2 ring-slate-100 flex flex-row">
+            {renderFile(data, index)}
+            <div className="flex flex-col justify-center w-4/5">
+              <input
+                readOnly
+                value={`![${data.name}](${data.url})`}
+                onClick={() => handleCopy(`![${data.name}](${data.url})`)}
+                className="px-3 my-1 py-2 border border-gray-300 rounded-lg bg-white text-sm text-gray-800 focus:outline-none placeholder-gray-400 cursor-pointer hover:bg-gray-50"
+                title="点击复制 Markdown 链接"
+              />
+            </div>
           </div>
-        );
-      case 'htmlLinks':
-        return (
-          <div ref={parentRef} className=" p-4 bg-slate-100  " onClick={handleCopyCode}>
-            {uploadedImages.map((data, index) => (
-              <div key={index} className="mb-2 ">
-                <code className=" w-2 break-all">{`<img src="${data.url}" alt="${data.name}" />`}</code>
-              </div>
-            ))}
-          </div >
-        );
-      case 'markdownLinks':
-        return (
-          <div ref={parentRef} className=" p-4 bg-slate-100  " onClick={handleCopyCode}>
-            {uploadedImages.map((data, index) => (
-              <div key={index} className="mb-2">
-                <code className=" w-2 break-all">{`![${data.name}](${data.url})`}</code>
-              </div>
-            ))}
-          </div>
-        );
-      case 'bbcodeLinks':
-        return (
-          <div ref={parentRef} className=" p-4 bg-slate-100  " onClick={handleCopyCode}>
-            {uploadedImages.map((data, index) => (
-              <div key={index} className="mb-2">
-                <code className=" w-2 break-all">{`[img]${data.url}[/img]`}</code>
-              </div>
-            ))}
-          </div>
-        );
-      case 'viewLinks':
-        return (
-          <div ref={parentRef} className=" p-4 bg-slate-100  " onClick={handleCopyCode}>
-            {uploadedImages.map((data, index) => (
-              <div key={index} className="mb-2">
-                <code className=" w-2 break-all">{`${data.url}`}</code>
-              </div>
-            ))}
-          </div>
-        );
-      default:
-        return null;
-    }
+        ))}
+      </div>
+    );
   };
 
   const handleSelectChange = (e) => {
@@ -632,40 +660,15 @@ export default function Home() {
 
         <ToastContainer />
         <div className="w-full mt-4 min-h-[200px] mb-[60px] ">
-
-          {
-            uploadedImages.length > 0 && (<>
-              <div className="flex flex-wrap gap-3 mb-4 border-b border-gray-300 ">
-                <button
-                  onClick={() => setActiveTab('preview')}
-                  className={`px-4 py-2 ${activeTab === 'preview' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-800'}`}>
-                  Preview
-                </button>
-                <button
-                  onClick={() => setActiveTab('htmlLinks')}
-                  className={`px-4 py-2 ${activeTab === 'htmlLinks' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-800'}`}>
-                  HTML
-                </button>
-                <button
-                  onClick={() => setActiveTab('markdownLinks')}
-                  className={`px-4 py-2 ${activeTab === 'markdownLinks' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-800'}`}>
-                  Markdown
-                </button>
-                <button
-                  onClick={() => setActiveTab('bbcodeLinks')}
-                  className={`px-4 py-2 ${activeTab === 'bbcodeLinks' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-800'}`}>
-                  BBCode
-                </button>
-                <button
-                  onClick={() => setActiveTab('viewLinks')}
-                  className={`px-4 py-2 ${activeTab === 'viewLinks' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-800'}`}>
-                  Links
-                </button>
+          {uploadedImages.length > 0 && (
+            <>
+              <div className="mb-4 border-b border-gray-300 pb-2">
+                <h3 className="text-lg font-semibold text-gray-800">已上传的图片 (Markdown 格式)</h3>
+                <p className="text-sm text-gray-500">点击链接即可复制</p>
               </div>
-              {renderTabContent()}
+              {renderUploadedImages()}
             </>
-            )
-          }
+          )}
         </div>
 
       </div>
