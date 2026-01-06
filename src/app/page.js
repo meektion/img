@@ -30,11 +30,20 @@ export default function Home() {
   const [uploading, setUploading] = useState(false);
   const [IP, setIP] = useState('');
   const [Total, setTotal] = useState('?');
-  const [selectedOption, setSelectedOption] = useState('tgchannel'); // 初始选择第一个选项
-  const [isAuthapi, setisAuthapi] = useState(false); // 初始选择第一个选项
-  const [Loginuser, setLoginuser] = useState(''); // 初始选择第一个选项
+  const [selectedOption, setSelectedOption] = useState('tgchannel'); // 默认 TG_Channel
+  const [isAuthapi, setisAuthapi] = useState(false);
+  const [Loginuser, setLoginuser] = useState('');
   const [boxType, setBoxtype] = useState("img");
   const [enableWebP, setEnableWebP] = useState(false); // WebP 转换开关（默认关闭）
+
+  // 不同接口的文件大小限制
+  const FILE_SIZE_LIMITS = {
+    'tgchannel': 50 * 1024 * 1024,   // 50 MB - Telegram Bot API 限制
+    'r2': 100 * 1024 * 1024,         // 100 MB - Cloudflare R2 限制
+  };
+
+  // 获取当前接口的大小限制
+  const getMaxFileSize = () => FILE_SIZE_LIMITS[selectedOption] || 50 * 1024 * 1024;
 
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
 
@@ -92,7 +101,7 @@ export default function Home() {
 
       } else {
         setisAuthapi(false)
-        setSelectedOption("58img")
+        // 未登录时默认使用 TG_Channel
       }
 
 
@@ -128,6 +137,18 @@ export default function Home() {
     return validImageTypes.includes(file.type);
   };
 
+  // 验证文件大小
+  const isValidFileSize = (file) => {
+    const maxSize = getMaxFileSize();
+    if (file.size > maxSize) {
+      const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+      const maxSizeMB = (maxSize / (1024 * 1024)).toFixed(0);
+      toast.error(`${file.name} 文件过大 (${fileSizeMB} MB)，当前接口最大支持 ${maxSizeMB} MB`);
+      return false;
+    }
+    return true;
+  };
+
   const handleFileChange = async (event) => {
     const newFiles = event.target.files;
     const allFiles = Array.from(newFiles);
@@ -139,11 +160,14 @@ export default function Home() {
     // 显示处理提示
     toast.info(`正在处理 ${allFiles.length} 个文件...`, { autoClose: 2000 });
 
-    // 过滤出图片文件
+    // 过滤出图片文件并验证大小
     const imageFiles = allFiles.filter(file => {
       if (!isImageFile(file)) {
         toast.error(`${file.name} 不是图片文件，已跳过`);
         return false;
+      }
+      if (!isValidFileSize(file)) {
+        return false; // 文件过大，已在 isValidFileSize 中提示
       }
       return true;
     });
@@ -301,21 +325,17 @@ export default function Home() {
       return;
     }
 
-    const formFieldName = selectedOption === "tencent" ? "media" : "file";
     let successCount = 0;
 
     try {
       for (const file of filesToUpload) {
         const formData = new FormData();
 
-        formData.append(formFieldName, file);
+        formData.append('file', file);
 
         try {
-          const targetUrl = selectedOption === "tgchannel" || selectedOption === "r2"
-            ? `/api/enableauthapi/${selectedOption}`
-            : `/api/${selectedOption}`;
-
-          // const response = await fetch("https://img.131213.xyz/api/tencent", {
+          // 根据选择的接口上传
+          const targetUrl = `/api/enableauthapi/${selectedOption}`;
           const response = await fetch(targetUrl, {
             method: 'POST',
             body: formData,
@@ -576,7 +596,7 @@ export default function Home() {
   };
 
   const handleSelectChange = (e) => {
-    setSelectedOption(e.target.value); // 更新选择框的值
+    setSelectedOption(e.target.value);
   };
 
 
@@ -619,27 +639,24 @@ export default function Home() {
       </header>
       <div className="mt-[60px] w-9/10 sm:w-9/10 md:w-9/10 lg:w-9/10 xl:w-3/5 2xl:w-2/3">
 
-        <div className="flex flex-row">
+        <div className="flex flex-row items-center justify-between">
           <div className="flex flex-col">
-            <div className="text-gray-800 text-lg">图片或视频上传
-            </div>
+            <div className="text-gray-800 text-lg">图片或视频上传</div>
             <div className="mb-4 text-sm text-gray-500">
-              上传文件最大 5 MB;本站已托管 <span className="text-cyan-600">{Total}</span> 张图片; 你访问本站的IP是：<span className="text-cyan-600">{IP}</span>
+              上传文件最大 {selectedOption === 'r2' ? '100 MB (R2)' : '50 MB (Telegram)'};本站已托管 <span className="text-cyan-600">{Total}</span> 张图片; 你访问本站的IP是：<span className="text-cyan-600">{IP}</span>
             </div>
           </div>
-          <div className="flex  flex-col sm:flex-col   md:w-auto lg:flex-row xl:flex-row  2xl:flex-row  mx-auto items-center gap-4">
+
+          <div className="flex items-center gap-4">
             <div className="flex items-center">
-              <span className="text-lg sm:text-sm md:text-sm lg:text-xl xl:text-xl 2xl:text-xl mr-2">上传接口：</span>
+              <span className="text-sm text-gray-700 mr-2">接口：</span>
               <select
                 value={selectedOption}
                 onChange={handleSelectChange}
-                className="text-lg p-2 border rounded text-center w-auto sm:w-auto md:w-auto lg:w-auto xl:w-auto 2xl:w-36">
-                <option value="tg">TG(会失效)</option>
-                <option value="tgchannel">TG_Channel</option>
-                <option value="r2">R2</option>
-                {/* <option value="vviptuangou">vviptuangou</option> */}
-                <option value="58img">58img</option>
-                {/* <option value="tencent">tencent</option> */}
+                className="px-3 py-1 border border-gray-300 rounded bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="tgchannel">TG_Channel (50MB)</option>
+                <option value="r2">R2 (100MB)</option>
               </select>
             </div>
 
@@ -658,8 +675,6 @@ export default function Home() {
               </label>
             </div>
           </div>
-
-
         </div>
         <div
           className="border-2 border-dashed border-slate-400 rounded-md relative"
