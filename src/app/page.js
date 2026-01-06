@@ -121,14 +121,36 @@ export default function Home() {
     }
   }
 
+  // 验证文件是否为图片
+  const isImageFile = (file) => {
+    const validImageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/bmp', 'image/svg+xml', 'image/heic', 'image/heif'];
+    return validImageTypes.includes(file.type);
+  };
+
   const handleFileChange = async (event) => {
     const newFiles = event.target.files;
-    const filteredFiles = Array.from(newFiles).filter(file =>
+    const allFiles = Array.from(newFiles);
+
+    // 过滤出图片文件
+    const imageFiles = allFiles.filter(file => {
+      if (!isImageFile(file)) {
+        toast.error(`${file.name} 不是图片文件，已跳过`);
+        return false;
+      }
+      return true;
+    });
+
+    const filteredFiles = imageFiles.filter(file =>
       !selectedFiles.find(selFile => selFile.name === file.name));
     // 过滤掉已经在 uploadedImages 数组中存在的文件
     const uniqueFiles = filteredFiles.filter(file =>
       !uploadedImages.find(upImg => upImg.name === file.name)
     );
+
+    if (uniqueFiles.length === 0 && allFiles.length > 0) {
+      toast.warning('没有可添加的新图片');
+      return;
+    }
 
     // 转换所有图片为 WebP
     const convertedFiles = await Promise.all(
@@ -321,8 +343,15 @@ export default function Home() {
 
     for (let i = 0; i < clipboardItems.length; i++) {
       const item = clipboardItems[i];
-      if (item.kind === 'file' && item.type.includes('image')) {
+      if (item.kind === 'file') {
         const file = item.getAsFile();
+
+        // 验证是否为图片
+        if (!isImageFile(file)) {
+          toast.error('粘贴的文件不是图片格式');
+          return;
+        }
+
         try {
           const convertedFile = await convertToWebP(file);
           setSelectedFiles([...selectedFiles, convertedFile]);
@@ -341,7 +370,25 @@ export default function Home() {
     const files = event.dataTransfer.files;
 
     if (files.length > 0) {
-      const filteredFiles = Array.from(files).filter(file => !selectedFiles.find(selFile => selFile.name === file.name));
+      const allFiles = Array.from(files);
+
+      // 过滤出图片文件
+      const imageFiles = allFiles.filter(file => {
+        if (!isImageFile(file)) {
+          toast.error(`${file.name} 不是图片文件，已跳过`);
+          return false;
+        }
+        return true;
+      });
+
+      const filteredFiles = imageFiles.filter(file => !selectedFiles.find(selFile => selFile.name === file.name));
+
+      if (filteredFiles.length === 0) {
+        if (allFiles.length > 0) {
+          toast.warning('没有可添加的新图片');
+        }
+        return;
+      }
 
       // 转换所有图片为 WebP
       const convertedFiles = await Promise.all(
@@ -417,7 +464,7 @@ export default function Home() {
           key={`image-${index}`}
           src={data.url}
           alt={`Uploaded ${index}`}
-          className="object-cover w-36 h-40 m-2"
+          className="object-cover w-36 h-40 m-2 cursor-pointer hover:opacity-80 transition-opacity"
           onClick={() => handlerenderImageClick(fileUrl, "img")}
         />
       );
@@ -427,7 +474,7 @@ export default function Home() {
         <video
           key={`video-${index}`}
           src={data.url}
-          className="object-cover w-36 h-40 m-2"
+          className="object-cover w-36 h-40 m-2 cursor-pointer"
           controls
           onClick={() => handlerenderImageClick(fileUrl, "video")}
         >
@@ -442,7 +489,7 @@ export default function Home() {
           key={`image-${index}`}
           src={data.url}
           alt={`Uploaded ${index}`}
-          className="object-cover w-36 h-40 m-2"
+          className="object-cover w-36 h-40 m-2 cursor-pointer hover:opacity-80 transition-opacity"
           onClick={() => handlerenderImageClick(fileUrl, "other")}
         />
       );
@@ -555,12 +602,13 @@ export default function Home() {
             <LoadingOverlay loading={uploading} />
             {selectedFiles.map((file, index) => (
               <div key={index} className="relative rounded-2xl w-44 h-48 ring-offset-2 ring-2  mx-3 my-3 flex flex-col items-center">
-                <div className="relative w-36 h-36 " onClick={() => handleImageClick(index)}>
+                <div className="relative w-36 h-36 cursor-pointer" onClick={() => handleImageClick(index)}>
                   {file.type.startsWith('image/') && (
                     <Image
                       src={URL.createObjectURL(file)}
                       alt={`Preview ${file.name}`}
                       fill={true}
+                      className="hover:opacity-80 transition-opacity"
                     />
                   )}
                   {file.type.startsWith('video/') && (
@@ -625,6 +673,7 @@ export default function Home() {
             <input
               id="file-upload"
               type="file"
+              accept="image/*"
               className="hidden"
               onChange={handleFileChange}
               multiple
