@@ -34,6 +34,7 @@ export default function Home() {
   const [isAuthapi, setisAuthapi] = useState(false); // 初始选择第一个选项
   const [Loginuser, setLoginuser] = useState(''); // 初始选择第一个选项
   const [boxType, setBoxtype] = useState("img");
+  const [enableWebP, setEnableWebP] = useState(false); // WebP 转换开关（默认关闭）
 
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
 
@@ -164,15 +165,22 @@ export default function Home() {
       return;
     }
 
-    // 转换所有图片为 WebP（现在不会失败，会降级使用原文件）
-    const convertedFiles = await Promise.all(
-      uniqueFiles.map(async (file) => {
-        return await convertToWebP(file);
-      })
-    );
+    // 根据开关决定是否转换 WebP
+    let processedFiles;
+    if (enableWebP) {
+      // 转换为 WebP
+      processedFiles = await Promise.all(
+        uniqueFiles.map(async (file) => {
+          return await convertToWebP(file);
+        })
+      );
+    } else {
+      // 直接使用原文件，不转换
+      processedFiles = uniqueFiles;
+    }
 
-    setSelectedFiles([...selectedFiles, ...convertedFiles]);
-    toast.success(`成功添加 ${convertedFiles.length} 张图片`);
+    setSelectedFiles([...selectedFiles, ...processedFiles]);
+    toast.success(`成功添加 ${processedFiles.length} 张图片${enableWebP ? '（已转换 WebP）' : ''}`);
   };
 
   const handleClear = () => {
@@ -392,10 +400,10 @@ export default function Home() {
 
         toast.info('正在处理粘贴的图片...', { autoClose: 1000 });
 
-        // 转换图片（现在不会失败）
-        const convertedFile = await convertToWebP(file);
-        setSelectedFiles([...selectedFiles, convertedFile]);
-        toast.success('图片添加成功');
+        // 根据开关决定是否转换
+        const processedFile = enableWebP ? await convertToWebP(file) : file;
+        setSelectedFiles([...selectedFiles, processedFile]);
+        toast.success(`图片添加成功${enableWebP ? '（已转换 WebP）' : ''}`);
 
         break; // 只处理第一个文件
       }
@@ -434,15 +442,22 @@ export default function Home() {
         return;
       }
 
-      // 转换所有图片为 WebP（现在不会失败）
-      const convertedFiles = await Promise.all(
-        filteredFiles.map(async (file) => {
-          return await convertToWebP(file);
-        })
-      );
+      // 根据开关决定是否转换 WebP
+      let processedFiles;
+      if (enableWebP) {
+        // 转换为 WebP
+        processedFiles = await Promise.all(
+          filteredFiles.map(async (file) => {
+            return await convertToWebP(file);
+          })
+        );
+      } else {
+        // 直接使用原文件，不转换
+        processedFiles = filteredFiles;
+      }
 
-      setSelectedFiles([...selectedFiles, ...convertedFiles]);
-      toast.success(`成功添加 ${convertedFiles.length} 张图片`);
+      setSelectedFiles([...selectedFiles, ...processedFiles]);
+      toast.success(`成功添加 ${processedFiles.length} 张图片${enableWebP ? '（已转换 WebP）' : ''}`);
     }
   };
 
@@ -612,20 +627,36 @@ export default function Home() {
               上传文件最大 5 MB;本站已托管 <span className="text-cyan-600">{Total}</span> 张图片; 你访问本站的IP是：<span className="text-cyan-600">{IP}</span>
             </div>
           </div>
-          <div className="flex  flex-col sm:flex-col   md:w-auto lg:flex-row xl:flex-row  2xl:flex-row  mx-auto items-center  ">
-            <span className=" text-lg sm:text-sm   md:text-sm lg:text-xl xl:text-xl  2xl:text-xl">上传接口：</span>
-            <select
-              value={selectedOption} // 将选择框的值绑定到状态中的 selectedOption
-              onChange={handleSelectChange} // 当选择框的值发生变化时触发 handleSelectChange 函数
-              className="text-lg p-2 border  rounded text-center w-auto sm:w-auto md:w-auto lg:w-auto xl:w-auto  2xl:w-36">
-              <option value="tg" >TG(会失效)</option>
-              <option value="tgchannel">TG_Channel</option>
-              <option value="r2">R2</option>
-              {/* <option value="vviptuangou">vviptuangou</option> */}
-              <option value="58img">58img</option>
-              {/* <option value="tencent">tencent</option> */}
+          <div className="flex  flex-col sm:flex-col   md:w-auto lg:flex-row xl:flex-row  2xl:flex-row  mx-auto items-center gap-4">
+            <div className="flex items-center">
+              <span className="text-lg sm:text-sm md:text-sm lg:text-xl xl:text-xl 2xl:text-xl mr-2">上传接口：</span>
+              <select
+                value={selectedOption}
+                onChange={handleSelectChange}
+                className="text-lg p-2 border rounded text-center w-auto sm:w-auto md:w-auto lg:w-auto xl:w-auto 2xl:w-36">
+                <option value="tg">TG(会失效)</option>
+                <option value="tgchannel">TG_Channel</option>
+                <option value="r2">R2</option>
+                {/* <option value="vviptuangou">vviptuangou</option> */}
+                <option value="58img">58img</option>
+                {/* <option value="tencent">tencent</option> */}
+              </select>
+            </div>
 
-            </select>
+            <div className="flex items-center">
+              <label className="flex items-center cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={enableWebP}
+                  onChange={(e) => setEnableWebP(e.target.checked)}
+                  className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+                />
+                <span className="ml-2 text-sm text-gray-700">
+                  转换 WebP
+                  <span className="text-xs text-gray-500 ml-1">(减小文件)</span>
+                </span>
+              </label>
+            </div>
           </div>
 
 
