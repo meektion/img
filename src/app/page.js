@@ -131,6 +131,13 @@ export default function Home() {
     const newFiles = event.target.files;
     const allFiles = Array.from(newFiles);
 
+    if (allFiles.length === 0) {
+      return;
+    }
+
+    // 显示处理提示
+    toast.info(`正在处理 ${allFiles.length} 个文件...`, { autoClose: 2000 });
+
     // 过滤出图片文件
     const imageFiles = allFiles.filter(file => {
       if (!isImageFile(file)) {
@@ -140,6 +147,11 @@ export default function Home() {
       return true;
     });
 
+    if (imageFiles.length === 0) {
+      toast.warning('没有可用的图片文件');
+      return;
+    }
+
     const filteredFiles = imageFiles.filter(file =>
       !selectedFiles.find(selFile => selFile.name === file.name));
     // 过滤掉已经在 uploadedImages 数组中存在的文件
@@ -148,24 +160,19 @@ export default function Home() {
     );
 
     if (uniqueFiles.length === 0 && allFiles.length > 0) {
-      toast.warning('没有可添加的新图片');
+      toast.warning('所选图片已存在，未添加新图片');
       return;
     }
 
-    // 转换所有图片为 WebP
+    // 转换所有图片为 WebP（现在不会失败，会降级使用原文件）
     const convertedFiles = await Promise.all(
       uniqueFiles.map(async (file) => {
-        try {
-          return await convertToWebP(file);
-        } catch (error) {
-          console.error(`转换 ${file.name} 失败:`, error);
-          toast.error(`转换 ${file.name} 为 WebP 失败，使用原文件`);
-          return file; // 如果转换失败，使用原文件
-        }
+        return await convertToWebP(file);
       })
     );
 
     setSelectedFiles([...selectedFiles, ...convertedFiles]);
+    toast.success(`成功添加 ${convertedFiles.length} 张图片`);
   };
 
   const handleClear = () => {
@@ -179,7 +186,7 @@ export default function Home() {
     return (totalSizeInBytes / (1024 * 1024)).toFixed(2); // 转换为MB并保留两位小数
   };
 
-  // 将图片转换为 WebP 格式
+  // 将图片转换为 WebP 格式（带超时和降级处理）
   const convertToWebP = async (file) => {
     // 如果不是图片文件，直接返回原文件
     if (!file.type.startsWith('image/')) {
@@ -191,55 +198,86 @@ export default function Home() {
       return file;
     }
 
-    return new Promise((resolve, reject) => {
+    // 检查浏览器是否支持 WebP
+    const canvas = document.createElement('canvas');
+    const supportsWebP = canvas.toDataURL('image/webp').indexOf('data:image/webp') === 0;
+
+    if (!supportsWebP) {
+      console.warn('浏览器不支持 WebP，使用原文件');
+      return file;
+    }
+
+    // 设置超时时间（5秒）
+    const timeout = 5000;
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('转换超时')), timeout)
+    );
+
+    const convertPromise = new Promise((resolve, reject) => {
       const reader = new FileReader();
 
       reader.onload = (e) => {
         const img = new Image();
 
         img.onload = () => {
-          // 创建 canvas
-          const canvas = document.createElement('canvas');
-          canvas.width = img.width;
-          canvas.height = img.height;
+          try {
+            // 创建 canvas
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
 
-          // 绘制图片到 canvas
-          const ctx = canvas.getContext('2d');
-          ctx.drawImage(img, 0, 0);
+            // 绘制图片到 canvas
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
 
-          // 转换为 WebP，质量设置为 0.8 (80%)
-          canvas.toBlob(
-            (blob) => {
-              if (blob) {
-                // 生成新的文件名（保留原文件名，只改扩展名）
-                const originalName = file.name.replace(/\.[^/.]+$/, '');
-                const newFile = new File([blob], `${originalName}.webp`, {
-                  type: 'image/webp',
-                  lastModified: Date.now()
-                });
-                resolve(newFile);
-              } else {
-                reject(new Error('WebP 转换失败'));
-              }
-            },
-            'image/webp',
-            0.8 // 质量参数 80%
-          );
+            // 转换为 WebP，质量设置为 0.8 (80%)
+            canvas.toBlob(
+              (blob) => {
+                if (blob) {
+                  // 生成新的文件名（保留原文件名，只改扩展名）
+                  const originalName = file.name.replace(/\.[^/.]+$/, '');
+                  const newFile = new File([blob], `${originalName}.webp`, {
+                    type: 'image/webp',
+                    lastModified: Date.now()
+                  });
+                  resolve(newFile);
+                } else {
+                  // 转换失败，返回原文件
+                  console.warn('WebP 转换失败，使用原文件');
+                  resolve(file);
+                }
+              },
+              'image/webp',
+              0.8 // 质量参数 80%
+            );
+          } catch (error) {
+            console.error('Canvas 操作失败:', error);
+            resolve(file); // 失败时返回原文件
+          }
         };
 
         img.onerror = () => {
-          reject(new Error('图片加载失败'));
+          console.error('图片加载失败');
+          resolve(file); // 失败时返回原文件
         };
 
         img.src = e.target.result;
       };
 
       reader.onerror = () => {
-        reject(new Error('文件读取失败'));
+        console.error('文件读取失败');
+        resolve(file); // 失败时返回原文件
       };
 
       reader.readAsDataURL(file);
     });
+
+    try {
+      return await Promise.race([convertPromise, timeoutPromise]);
+    } catch (error) {
+      console.warn('转换超时或失败，使用原文件:', error.message);
+      return file; // 超时或失败时返回原文件
+    }
   };
 
 
@@ -352,14 +390,13 @@ export default function Home() {
           return;
         }
 
-        try {
-          const convertedFile = await convertToWebP(file);
-          setSelectedFiles([...selectedFiles, convertedFile]);
-        } catch (error) {
-          console.error('转换粘贴的图片失败:', error);
-          toast.error('转换粘贴的图片为 WebP 失败，使用原文件');
-          setSelectedFiles([...selectedFiles, file]);
-        }
+        toast.info('正在处理粘贴的图片...', { autoClose: 1000 });
+
+        // 转换图片（现在不会失败）
+        const convertedFile = await convertToWebP(file);
+        setSelectedFiles([...selectedFiles, convertedFile]);
+        toast.success('图片添加成功');
+
         break; // 只处理第一个文件
       }
     }
@@ -372,6 +409,8 @@ export default function Home() {
     if (files.length > 0) {
       const allFiles = Array.from(files);
 
+      toast.info(`正在处理 ${allFiles.length} 个文件...`, { autoClose: 2000 });
+
       // 过滤出图片文件
       const imageFiles = allFiles.filter(file => {
         if (!isImageFile(file)) {
@@ -381,29 +420,29 @@ export default function Home() {
         return true;
       });
 
+      if (imageFiles.length === 0) {
+        toast.warning('没有可用的图片文件');
+        return;
+      }
+
       const filteredFiles = imageFiles.filter(file => !selectedFiles.find(selFile => selFile.name === file.name));
 
       if (filteredFiles.length === 0) {
         if (allFiles.length > 0) {
-          toast.warning('没有可添加的新图片');
+          toast.warning('所选图片已存在，未添加新图片');
         }
         return;
       }
 
-      // 转换所有图片为 WebP
+      // 转换所有图片为 WebP（现在不会失败）
       const convertedFiles = await Promise.all(
         filteredFiles.map(async (file) => {
-          try {
-            return await convertToWebP(file);
-          } catch (error) {
-            console.error(`转换 ${file.name} 失败:`, error);
-            toast.error(`转换 ${file.name} 为 WebP 失败，使用原文件`);
-            return file; // 如果转换失败，使用原文件
-          }
+          return await convertToWebP(file);
         })
       );
 
       setSelectedFiles([...selectedFiles, ...convertedFiles]);
+      toast.success(`成功添加 ${convertedFiles.length} 张图片`);
     }
   };
 
