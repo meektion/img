@@ -639,41 +639,38 @@ export default function Home() {
       </header>
       <div className="mt-[60px] w-9/10 sm:w-9/10 md:w-9/10 lg:w-9/10 xl:w-3/5 2xl:w-2/3">
 
-        <div className="flex flex-row items-center justify-between">
+        <div className="flex flex-col gap-3 mb-4">
+          {/* 标题和基本信息 */}
           <div className="flex flex-col">
-            <div className="text-gray-800 text-lg">图片或视频上传</div>
-            <div className="mb-4 text-sm text-gray-500">
-              上传文件最大 {selectedOption === 'r2' ? '100 MB (R2)' : '50 MB (Telegram)'};本站已托管 <span className="text-cyan-600">{Total}</span> 张图片; 你访问本站的IP是：<span className="text-cyan-600">{IP}</span>
+            <div className="text-gray-800 text-lg font-medium">图片上传</div>
+            <div className="text-sm text-gray-500">
+              已托管 <span className="text-cyan-600">{Total}</span> 张 · IP: <span className="text-cyan-600">{IP}</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
-            <div className="flex items-center">
-              <span className="text-sm text-gray-700 mr-2">接口：</span>
+          {/* 接口选择和WebP转换 */}
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-700">接口:</span>
               <select
                 value={selectedOption}
                 onChange={handleSelectChange}
-                className="px-3 py-1 border border-gray-300 rounded bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-3 py-1.5 border border-gray-300 rounded bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="tgchannel">TG_Channel (50MB)</option>
+                <option value="tgchannel">Telegram (50MB)</option>
                 <option value="r2">R2 (100MB)</option>
               </select>
             </div>
 
-            <div className="flex items-center">
-              <label className="flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={enableWebP}
-                  onChange={(e) => setEnableWebP(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
-                />
-                <span className="ml-2 text-sm text-gray-700">
-                  转换 WebP
-                  <span className="text-xs text-gray-500 ml-1">(减小文件)</span>
-                </span>
-              </label>
-            </div>
+            <label className="flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={enableWebP}
+                onChange={(e) => setEnableWebP(e.target.checked)}
+                className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+              />
+              <span className="ml-2 text-sm text-gray-700">转换 WebP</span>
+            </label>
           </div>
         </div>
         <div
