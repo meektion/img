@@ -579,7 +579,14 @@ export default function Home() {
         return;
       }
 
-      const allLinks = uploadedImages.map(data => `![${data.name}](${data.url})`).join('\n');
+      // 视频显示 HTML video 标签，图片显示 Markdown 格式
+      const allLinks = uploadedImages.map(data => {
+        const isVideo = data.type.startsWith('video/');
+        return isVideo
+          ? `<video src="${data.url}" controls width="640"></video>`
+          : `![${data.name}](${data.url})`;
+      }).join('\n');
+
       await navigator.clipboard.writeText(allLinks);
       toast.success(`已复制 ${uploadedImages.length} 个文件链接`);
     } catch (err) {
@@ -640,20 +647,29 @@ export default function Home() {
   const renderUploadedImages = () => {
     return (
       <div className="flex flex-col">
-        {uploadedImages.map((data, index) => (
-          <div key={index} className="m-2 rounded-2xl ring-offset-2 ring-2 ring-slate-100 flex flex-row">
-            {renderFile(data, index)}
-            <div className="flex flex-col justify-center w-4/5">
-              <input
-                readOnly
-                value={`![${data.name}](${data.url})`}
-                onClick={() => handleCopy(`![${data.name}](${data.url})`)}
-                className="px-3 my-1 py-2 border border-gray-300 rounded-lg bg-white text-sm text-gray-800 focus:outline-none placeholder-gray-400 cursor-pointer hover:bg-gray-50"
-                title="点击复制 Markdown 链接"
-              />
+        {uploadedImages.map((data, index) => {
+          // 判断是视频还是图片
+          const isVideo = data.type.startsWith('video/');
+          const linkText = isVideo
+            ? `<video src="${data.url}" controls width="640"></video>`
+            : `![${data.name}](${data.url})`;
+          const linkTitle = isVideo ? '点击复制 HTML video 标签' : '点击复制 Markdown 链接';
+
+          return (
+            <div key={index} className="m-2 rounded-2xl ring-offset-2 ring-2 ring-slate-100 flex flex-row">
+              {renderFile(data, index)}
+              <div className="flex flex-col justify-center w-4/5">
+                <input
+                  readOnly
+                  value={linkText}
+                  onClick={() => handleCopy(linkText)}
+                  className="px-3 my-1 py-2 border border-gray-300 rounded-lg bg-white text-sm text-gray-800 focus:outline-none placeholder-gray-400 cursor-pointer hover:bg-gray-50"
+                  title={linkTitle}
+                />
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     );
   };
