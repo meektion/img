@@ -57,6 +57,12 @@ export async function POST(request) {
 	header.set("content-type", fileType)
 	header.set("content-length", `${file.size}`)
 
+	// 判断是否为视频或图片，设置为 inline 便于浏览器直接显示
+	const isMediaFile = fileType.startsWith('video/') || fileType.startsWith('image/');
+	if (isMediaFile) {
+		header.set("content-disposition", `inline; filename="${filename}"`);
+	}
+
 
 	const corsHeaders = {
 		'Access-Control-Allow-Origin': '*',
