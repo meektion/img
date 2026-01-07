@@ -132,10 +132,11 @@ export default function Home() {
     }
   }
 
-  // 验证文件是否为图片
-  const isImageFile = (file) => {
+  // 验证文件是否为图片或视频
+  const isValidFile = (file) => {
     const validImageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/bmp', 'image/svg+xml', 'image/heic', 'image/heif'];
-    return validImageTypes.includes(file.type);
+    const validVideoTypes = ['video/mp4', 'video/mpeg', 'video/quicktime', 'video/x-msvideo', 'video/webm', 'video/x-matroska'];
+    return validImageTypes.includes(file.type) || validVideoTypes.includes(file.type);
   };
 
   // 验证文件大小
@@ -161,10 +162,10 @@ export default function Home() {
     // 显示处理提示
     toast.info(`正在处理 ${allFiles.length} 个文件...`, { autoClose: 2000 });
 
-    // 过滤出图片文件并验证大小
-    const imageFiles = allFiles.filter(file => {
-      if (!isImageFile(file)) {
-        toast.error(`${file.name} 不是图片文件，已跳过`);
+    // 过滤出图片和视频文件并验证大小
+    const validFiles = allFiles.filter(file => {
+      if (!isValidFile(file)) {
+        toast.error(`${file.name} 不是支持的文件格式，已跳过`);
         return false;
       }
       if (!isValidFileSize(file)) {
@@ -173,12 +174,12 @@ export default function Home() {
       return true;
     });
 
-    if (imageFiles.length === 0) {
-      toast.warning('没有可用的图片文件');
+    if (validFiles.length === 0) {
+      toast.warning('没有可用的文件');
       return;
     }
 
-    const filteredFiles = imageFiles.filter(file =>
+    const filteredFiles = validFiles.filter(file =>
       !selectedFiles.find(selFile => selFile.name === file.name));
     // 过滤掉已经在 uploadedImages 数组中存在的文件
     const uniqueFiles = filteredFiles.filter(file =>
@@ -186,17 +187,20 @@ export default function Home() {
     );
 
     if (uniqueFiles.length === 0 && allFiles.length > 0) {
-      toast.warning('所选图片已存在，未添加新图片');
+      toast.warning('所选文件已存在，未添加新文件');
       return;
     }
 
-    // 根据开关决定是否转换 WebP
+    // 根据开关决定是否转换 WebP（只对图片转换）
     let processedFiles;
     if (enableWebP) {
-      // 转换为 WebP
+      // 只对图片转换为 WebP，视频保持原样
       processedFiles = await Promise.all(
         uniqueFiles.map(async (file) => {
-          return await convertToWebP(file);
+          if (file.type.startsWith('image/')) {
+            return await convertToWebP(file);
+          }
+          return file; // 视频不转换
         })
       );
     } else {
@@ -205,7 +209,20 @@ export default function Home() {
     }
 
     setSelectedFiles([...selectedFiles, ...processedFiles]);
-    toast.success(`成功添加 ${processedFiles.length} 张图片${enableWebP ? '（已转换 WebP）' : ''}`);
+    const imageCount = processedFiles.filter(f => f.type.startsWith('image/')).length;
+    const videoCount = processedFiles.filter(f => f.type.startsWith('video/')).length;
+    let message = `成功添加 ${processedFiles.length} 个文件`;
+    if (imageCount > 0 && videoCount > 0) {
+      message = `成功添加 ${imageCount} 张图片、${videoCount} 个视频`;
+    } else if (imageCount > 0) {
+      message = `成功添加 ${imageCount} 张图片`;
+    } else if (videoCount > 0) {
+      message = `成功添加 ${videoCount} 个视频`;
+    }
+    if (enableWebP && imageCount > 0) {
+      message += '（图片已转换 WebP）';
+    }
+    toast.success(message);
   };
 
   const handleClear = () => {
@@ -399,7 +416,11 @@ export default function Home() {
       }
 
       setUploadedFilesNum(uploadedFilesNum + successCount);
-      toast.success(`已成功上传 ${successCount} 张图片`);
+      if (successCount === 1) {
+        toast.success(`文件上传成功`);
+      } else {
+        toast.success(`已成功上传 ${successCount} 个文件`);
+      }
 
     } catch (error) {
       console.error('上传过程中出现错误:', error);
@@ -421,18 +442,22 @@ export default function Home() {
       if (item.kind === 'file') {
         const file = item.getAsFile();
 
-        // 验证是否为图片
-        if (!isImageFile(file)) {
-          toast.error('粘贴的文件不是图片格式');
+        // 验证是否为支持的文件格式
+        if (!isValidFile(file)) {
+          toast.error('粘贴的文件不是支持的格式');
           return;
         }
 
-        toast.info('正在处理粘贴的图片...', { autoClose: 1000 });
+        toast.info('正在处理粘贴的文件...', { autoClose: 1000 });
 
-        // 根据开关决定是否转换
-        const processedFile = enableWebP ? await convertToWebP(file) : file;
+        // 根据开关决定是否转换（只对图片转换）
+        let processedFile = file;
+        if (enableWebP && file.type.startsWith('image/')) {
+          processedFile = await convertToWebP(file);
+        }
         setSelectedFiles([...selectedFiles, processedFile]);
-        toast.success(`图片添加成功${enableWebP ? '（已转换 WebP）' : ''}`);
+        const fileType = file.type.startsWith('image/') ? '图片' : '视频';
+        toast.success(`${fileType}添加成功${enableWebP && file.type.startsWith('image/') ? '（已转换 WebP）' : ''}`);
 
         break; // 只处理第一个文件
       }
@@ -448,45 +473,59 @@ export default function Home() {
 
       toast.info(`正在处理 ${allFiles.length} 个文件...`, { autoClose: 2000 });
 
-      // 过滤出图片文件
-      const imageFiles = allFiles.filter(file => {
-        if (!isImageFile(file)) {
-          toast.error(`${file.name} 不是图片文件，已跳过`);
+      // 过滤出支持的文件
+      const validFiles = allFiles.filter(file => {
+        if (!isValidFile(file)) {
+          toast.error(`${file.name} 不是支持的文件格式，已跳过`);
           return false;
         }
         return true;
       });
 
-      if (imageFiles.length === 0) {
-        toast.warning('没有可用的图片文件');
+      if (validFiles.length === 0) {
+        toast.warning('没有可用的文件');
         return;
       }
 
-      const filteredFiles = imageFiles.filter(file => !selectedFiles.find(selFile => selFile.name === file.name));
+      const filteredFiles = validFiles.filter(file => !selectedFiles.find(selFile => selFile.name === file.name));
 
       if (filteredFiles.length === 0) {
         if (allFiles.length > 0) {
-          toast.warning('所选图片已存在，未添加新图片');
+          toast.warning('所选文件已存在，未添加新文件');
         }
         return;
       }
 
-      // 根据开关决定是否转换 WebP
+      // 根据开关决定是否转换 WebP（只对图片）
       let processedFiles;
       if (enableWebP) {
-        // 转换为 WebP
         processedFiles = await Promise.all(
           filteredFiles.map(async (file) => {
-            return await convertToWebP(file);
+            if (file.type.startsWith('image/')) {
+              return await convertToWebP(file);
+            }
+            return file; // 视频不转换
           })
         );
       } else {
-        // 直接使用原文件，不转换
         processedFiles = filteredFiles;
       }
 
       setSelectedFiles([...selectedFiles, ...processedFiles]);
-      toast.success(`成功添加 ${processedFiles.length} 张图片${enableWebP ? '（已转换 WebP）' : ''}`);
+      const imageCount = processedFiles.filter(f => f.type.startsWith('image/')).length;
+      const videoCount = processedFiles.filter(f => f.type.startsWith('video/')).length;
+      let message = `成功添加 ${processedFiles.length} 个文件`;
+      if (imageCount > 0 && videoCount > 0) {
+        message = `成功添加 ${imageCount} 张图片、${videoCount} 个视频`;
+      } else if (imageCount > 0) {
+        message = `成功添加 ${imageCount} 张图片`;
+      } else if (videoCount > 0) {
+        message = `成功添加 ${videoCount} 个视频`;
+      }
+      if (enableWebP && imageCount > 0) {
+        message += '（图片已转换 WebP）';
+      }
+      toast.success(message);
     }
   };
 
@@ -530,6 +569,21 @@ export default function Home() {
       toast.success(`链接复制成功`);
     } catch (err) {
       toast.error("链接复制失败")
+    }
+  };
+
+  const handleCopyAll = async () => {
+    try {
+      if (uploadedImages.length === 0) {
+        toast.warning('没有可复制的文件');
+        return;
+      }
+
+      const allLinks = uploadedImages.map(data => `![${data.name}](${data.url})`).join('\n');
+      await navigator.clipboard.writeText(allLinks);
+      toast.success(`已复制 ${uploadedImages.length} 个文件链接`);
+    } catch (err) {
+      toast.error("复制失败")
     }
   };
 
@@ -651,7 +705,7 @@ export default function Home() {
         <div className="flex flex-col gap-3 mb-4">
           {/* 标题和基本信息 */}
           <div className="flex flex-col">
-            <div className="text-gray-800 text-lg font-medium">图片上传</div>
+            <div className="text-gray-800 text-lg font-medium">文件上传</div>
             <div className="text-sm text-gray-500">
               已托管 <span className="text-cyan-600">{Total}</span> 张 · IP: <span className="text-cyan-600">{IP}</span>
             </div>
@@ -771,12 +825,12 @@ export default function Home() {
               className="w-full h-10 bg-blue-500 cursor-pointer flex items-center justify-center text-white"
             >
               <FontAwesomeIcon icon={faImages} style={{ width: '20px', height: '20px' }} className="mr-2" />
-              选择图片
+              选择文件
             </label>
             <input
               id="file-upload"
               type="file"
-              accept="image/*"
+              accept="image/*,video/*"
               className="hidden"
               onChange={handleFileChange}
               multiple
@@ -784,7 +838,7 @@ export default function Home() {
           </div>
           <div className="md:col-span-5 col-span-8">
             <div className="w-full h-10 bg-slate-200 leading-10 px-4 text-center md:text-left">
-              已选择 {selectedFiles.length} 张，共 {getTotalSizeInMB(selectedFiles)} M
+              已选择 {selectedFiles.length} 个文件，共 {getTotalSizeInMB(selectedFiles)} M
             </div>
           </div>
           <div className="md:col-span-1 col-span-3">
@@ -814,9 +868,17 @@ export default function Home() {
         <div className="w-full mt-4 min-h-[200px] mb-[60px] ">
           {uploadedImages.length > 0 && (
             <>
-              <div className="mb-4 border-b border-gray-300 pb-2">
-                <h3 className="text-lg font-semibold text-gray-800">已上传的图片 (Markdown 格式)</h3>
-                <p className="text-sm text-gray-500">点击链接即可复制</p>
+              <div className="mb-4 border-b border-gray-300 pb-2 flex justify-between items-center">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-800">已上传的文件 (Markdown 格式)</h3>
+                  <p className="text-sm text-gray-500">点击链接即可复制</p>
+                </div>
+                <button
+                  onClick={handleCopyAll}
+                  className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
+                >
+                  全部复制 ({uploadedImages.length})
+                </button>
               </div>
               {renderUploadedImages()}
             </>
