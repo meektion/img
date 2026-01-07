@@ -119,8 +119,13 @@ export async function GET(request, { params }) {
 
 
         const contentType = getContentType(fileName);
+
+        // 判断是否为视频或图片，使用 inline 而不是 attachment
+        const isMediaFile = contentType.startsWith('video/') || contentType.startsWith('image/');
+        const disposition = isMediaFile ? 'inline' : 'attachment';
+
         const responseHeaders = {
-          "Content-Disposition": `attachment; filename=${fileName}`,
+          "Content-Disposition": `${disposition}; filename=${fileName}`,
           "Access-Control-Allow-Origin": "*",
           "Content-Type": contentType
         };
