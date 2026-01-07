@@ -33,6 +33,22 @@ export async function POST(request) {
 	const Referer = request.headers.get('Referer') || "Referer";
 
 	const formData = await request.formData();
+
+	// 验证6位数字密码
+	const pin = formData.get('pin');
+	const correctPin = env.UPLOAD_PIN_CODE || '123456'; // 从环境变量读取，默认123456
+
+	if (pin !== correctPin) {
+		return Response.json({
+			status: 401,
+			message: '密码错误',
+			success: false
+		}, {
+			status: 401,
+			headers: corsHeaders,
+		})
+	}
+
 	const fileType = formData.get('file').type;
 	const filename = formData.get('file').name;
 	const file = formData.get('file');
