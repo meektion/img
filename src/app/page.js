@@ -583,7 +583,7 @@ export default function Home() {
       const allLinks = uploadedImages.map(data => {
         const isVideo = data.type.startsWith('video/');
         return isVideo
-          ? `<video src="${data.url}" controls width="640"></video>`
+          ? `<video src="${data.url}" controls style="max-width: 100%; height: auto;"></video>`
           : `![${data.name}](${data.url})`;
       }).join('\n');
 
@@ -651,7 +651,7 @@ export default function Home() {
           // 判断是视频还是图片
           const isVideo = data.type.startsWith('video/');
           const linkText = isVideo
-            ? `<video src="${data.url}" controls width="640"></video>`
+            ? `<video src="${data.url}" controls style="max-width: 100%; height: auto;"></video>`
             : `![${data.name}](${data.url})`;
           const linkTitle = isVideo ? '点击复制 HTML video 标签' : '点击复制 Markdown 链接';
 
