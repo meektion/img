@@ -35,6 +35,7 @@ export default function Home() {
   const [Loginuser, setLoginuser] = useState('');
   const [boxType, setBoxtype] = useState("img");
   const [enableWebP, setEnableWebP] = useState(false); // WebP 转换开关（默认关闭）
+  const [uploadPin, setUploadPin] = useState(''); // 上传密码
 
   // 不同接口的文件大小限制
   const FILE_SIZE_LIMITS = {
@@ -325,6 +326,13 @@ export default function Home() {
       return;
     }
 
+    // 验证密码
+    if (!uploadPin || uploadPin.length !== 6) {
+      toast.error('请输入6位数字密码');
+      setUploading(false);
+      return;
+    }
+
     let successCount = 0;
 
     try {
@@ -332,6 +340,7 @@ export default function Home() {
         const formData = new FormData();
 
         formData.append('file', file);
+        formData.append('pin', uploadPin); // 添加密码到formData
 
         try {
           // 根据选择的接口上传
@@ -660,6 +669,18 @@ export default function Home() {
                 <option value="tgchannel">Telegram (50MB)</option>
                 <option value="r2">R2 (100MB)</option>
               </select>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-700">密码:</span>
+              <input
+                type="text"
+                maxLength="6"
+                placeholder="6位数字"
+                value={uploadPin}
+                onChange={(e) => setUploadPin(e.target.value.replace(/\D/g, ''))}
+                className="px-3 py-1.5 border border-gray-300 rounded bg-white text-sm w-24 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
             </div>
 
             <label className="flex items-center cursor-pointer">
