@@ -910,26 +910,9 @@ export default function Home() {
           </div>
         </div>
         <div className="w-full rounded-xl shadow-md overflow-hidden mt-4 bg-white p-3">
-          <div className="grid grid-cols-2 md:grid-cols-8 gap-2">
-            <div className="col-span-2 md:col-span-2">
-              <label
-                htmlFor="file-upload"
-                className="w-full h-10 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 cursor-pointer flex items-center justify-center text-white rounded-lg shadow-md hover:shadow-lg transition-all"
-              >
-                <FontAwesomeIcon icon={faImages} style={{ width: '16px', height: '16px' }} className="mr-2" />
-                <span className="text-sm">选择文件</span>
-              </label>
-              <input
-                id="file-upload"
-                type="file"
-                accept="*/*"
-                className="hidden"
-                onChange={handleFileChange}
-                multiple
-              />
-            </div>
-            <div className="col-span-2 md:col-span-4 flex items-center">
-              <div className="w-full h-10 bg-gray-50 rounded-lg px-3 text-center md:text-left flex items-center justify-center md:justify-start border border-gray-200">
+          <div className="grid grid-cols-3 gap-3">
+            <div className="col-span-3 md:col-span-1">
+              <div className="w-full h-10 bg-gray-50 rounded-lg px-3 flex items-center justify-center border border-gray-200">
                 <span className="text-sm text-gray-700">已选 <span className="font-semibold text-blue-600">{selectedFiles.length}</span> 个文件 · <span className="font-semibold text-purple-600">{getTotalSizeInMB(selectedFiles)}M</span></span>
               </div>
             </div>
@@ -938,21 +921,30 @@ export default function Home() {
                 className="w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 cursor-pointer h-10 flex items-center justify-center text-white rounded-lg shadow-md hover:shadow-lg transition-all"
                 onClick={handleClear}
               >
-                <FontAwesomeIcon icon={faTrashAlt} style={{ width: '16px', height: '16px' }} className="md:mr-2" />
-                <span className="hidden md:inline text-sm">清除</span>
+                <FontAwesomeIcon icon={faTrashAlt} style={{ width: '16px', height: '16px' }} className="mr-2" />
+                <span className="text-sm">清除</span>
               </div>
             </div>
-            <div className="col-span-1 md:col-span-1">
+            <div className="col-span-2 md:col-span-1">
               <div
                 className={`w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 cursor-pointer h-10 flex items-center justify-center text-white rounded-lg shadow-md hover:shadow-lg transition-all ${uploading ? 'pointer-events-none opacity-50' : ''}`}
                 onClick={() => handleUpload()}
               >
-                <FontAwesomeIcon icon={faUpload} style={{ width: '16px', height: '16px' }} className="md:mr-2" />
-                <span className="hidden md:inline text-sm">上传</span>
+                <FontAwesomeIcon icon={faUpload} style={{ width: '16px', height: '16px' }} className="mr-2" />
+                <span className="text-sm">上传</span>
               </div>
             </div>
           </div>
         </div>
+
+        <input
+          id="file-upload"
+          type="file"
+          accept="*/*"
+          className="hidden"
+          onChange={handleFileChange}
+          multiple
+        />
 
 
         <ToastContainer />
