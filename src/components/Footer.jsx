@@ -8,10 +8,10 @@ export default function Footer() {
   }, []);
 
   return (
-    <footer className="w-full  h-1/12 text-center  bg-slate-200  flex flex-col justify-center items-center">
-      <div >
-        <p className="text-xs text-gray-500">
-          © {year} Designed and developed by Jiang Sheng
+    <footer className="w-full h-1/12 text-center flex flex-col justify-center items-center">
+      <div>
+        <p className="text-sm text-gray-600 font-medium">
+          © {year} Designed and developed by <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent font-semibold">Jiang Sheng</span>
         </p>
       </div>
     </footer>
