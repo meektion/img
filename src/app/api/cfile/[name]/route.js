@@ -28,7 +28,13 @@ function getContentType(fileName) {
     'mov': 'video/quicktime',
     'wmv': 'video/x-ms-wmv',
     'flv': 'video/x-flv',
-    'mkv': 'video/x-matroska'
+    'mkv': 'video/x-matroska',
+    'mp3': 'audio/mpeg',
+    'wav': 'audio/wav',
+    'ogg': 'audio/ogg',
+    'flac': 'audio/flac',
+    'aac': 'audio/aac',
+    'm4a': 'audio/mp4'
   };
   return mimeTypes[extension] || 'application/octet-stream';
 }
