@@ -8,10 +8,10 @@ export default function Footer() {
   }, []);
 
   return (
-    <footer className="w-full h-1/12 text-center flex flex-col justify-center items-center">
+    <footer className="w-full h-full text-center flex flex-col justify-center items-center">
       <div>
-        <p className="text-sm text-gray-600 font-medium">
-          © {year} Designed and developed by{' '}
+        <p className="text-xs text-gray-600">
+          © {year} Designed by{' '}
           <Link
             href="https://134688.xyz"
             target="_blank"
