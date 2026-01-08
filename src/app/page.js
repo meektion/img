@@ -15,7 +15,7 @@ import LoadingOverlay from "@/components/LoadingOverlay";
 const LoginButton = ({ onClick, href, children }) => (
   <button
     onClick={onClick}
-    className="px-4 py-2 mx-2 w-28 sm:w-28 md:w-20 lg:w-16 xl:w-16 2xl:w-20 bg-blue-500 text-white rounded"
+    className="px-6 py-2 mx-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white rounded-lg shadow-md hover:shadow-lg transition-all transform hover:scale-105 font-medium"
   >
     {children}
   </button>
@@ -157,6 +157,9 @@ export default function Home() {
     if (allFiles.length === 0) {
       return;
     }
+
+    // 重置input值，以便可以重复选择同一文件
+    event.target.value = '';
 
     // 显示处理提示
     toast.info(`正在处理 ${allFiles.length} 个文件...`, { autoClose: 2000 });
@@ -687,7 +690,7 @@ export default function Home() {
 
   const renderUploadedImages = () => {
     return (
-      <div className="flex flex-col">
+      <div className="flex flex-col gap-4">
         {uploadedImages.map((data, index) => {
           // 根据文件类型生成不同的链接格式
           let linkText, linkTitle;
@@ -706,14 +709,14 @@ export default function Home() {
           }
 
           return (
-            <div key={index} className="m-2 rounded-2xl ring-offset-2 ring-2 ring-slate-100 flex flex-row">
+            <div key={index} className="bg-white rounded-xl shadow-md hover:shadow-xl transition-all overflow-hidden flex flex-row border border-gray-200">
               {renderFile(data, index)}
-              <div className="flex flex-col justify-center w-4/5">
+              <div className="flex flex-col justify-center w-4/5 p-4">
                 <input
                   readOnly
                   value={linkText}
                   onClick={() => handleCopy(linkText)}
-                  className="px-3 my-1 py-2 border border-gray-300 rounded-lg bg-white text-sm text-gray-800 focus:outline-none placeholder-gray-400 cursor-pointer hover:bg-gray-50"
+                  className="px-4 py-3 border border-gray-300 rounded-lg bg-gray-50 text-sm text-gray-800 focus:outline-none placeholder-gray-400 cursor-pointer hover:bg-blue-50 hover:border-blue-400 transition-all"
                   title={linkTitle}
                 />
               </div>
@@ -761,30 +764,32 @@ export default function Home() {
 
 
   return (
-    <main className=" overflow-auto h-full flex w-full min-h-screen flex-col items-center justify-between">
-      <header className="fixed top-0 h-[50px] left-0 w-full border-b bg-white flex z-50 justify-center items-center">
-        <nav className="flex justify-between items-center w-full max-w-4xl px-4">图床</nav>
+    <main className="overflow-auto h-full flex w-full min-h-screen flex-col items-center justify-between bg-gradient-to-br from-blue-50 via-white to-purple-50">
+      <header className="fixed top-0 h-[60px] left-0 w-full border-b bg-white/80 backdrop-blur-md flex z-50 justify-center items-center shadow-sm">
+        <nav className="flex justify-between items-center w-full max-w-4xl px-4">
+          <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">图床</span>
+        </nav>
         {renderButton()}
       </header>
-      <div className="mt-[60px] w-9/10 sm:w-9/10 md:w-9/10 lg:w-9/10 xl:w-3/5 2xl:w-2/3">
+      <div className="mt-[80px] w-9/10 sm:w-9/10 md:w-9/10 lg:w-9/10 xl:w-3/5 2xl:w-2/3">
 
-        <div className="flex flex-col gap-3 mb-4">
+        <div className="flex flex-col gap-4 mb-6">
           {/* 标题和基本信息 */}
-          <div className="flex flex-col">
-            <div className="text-gray-800 text-lg font-medium">文件上传</div>
-            <div className="text-sm text-gray-500">
-              已托管 <span className="text-cyan-600">{Total}</span> 张 · IP: <span className="text-cyan-600">{IP}</span>
+          <div className="flex flex-col bg-white rounded-xl p-6 shadow-md">
+            <div className="text-gray-800 text-2xl font-bold mb-2">文件上传</div>
+            <div className="text-sm text-gray-600">
+              已托管 <span className="text-blue-600 font-semibold">{Total}</span> 张 · IP: <span className="text-purple-600 font-semibold">{IP}</span>
             </div>
           </div>
 
           {/* 接口选择和WebP转换 */}
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-4 bg-white rounded-xl p-4 shadow-md">
             <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-700">接口:</span>
+              <span className="text-sm text-gray-700 font-medium">接口:</span>
               <select
                 value={selectedOption}
                 onChange={handleSelectChange}
-                className="px-3 py-1.5 border border-gray-300 rounded bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-4 py-2 border border-gray-300 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
               >
                 <option value="tgchannel">Telegram (50MB)</option>
                 <option value="r2">R2 (100MB)</option>
@@ -792,39 +797,39 @@ export default function Home() {
             </div>
 
             <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-700">密码:</span>
+              <span className="text-sm text-gray-700 font-medium">密码:</span>
               <input
                 type="text"
                 maxLength="6"
                 placeholder="6位数字"
                 value={uploadPin}
                 onChange={(e) => setUploadPin(e.target.value.replace(/\D/g, ''))}
-                className="px-3 py-1.5 border border-gray-300 rounded bg-white text-sm w-24 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="px-4 py-2 border border-gray-300 rounded-lg bg-white text-sm w-28 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
               />
             </div>
 
-            <label className="flex items-center cursor-pointer">
+            <label className="flex items-center cursor-pointer group">
               <input
                 type="checkbox"
                 checked={enableWebP}
                 onChange={(e) => setEnableWebP(e.target.checked)}
                 className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
               />
-              <span className="ml-2 text-sm text-gray-700">转换 WebP</span>
+              <span className="ml-2 text-sm text-gray-700 group-hover:text-blue-600 transition-colors">转换 WebP</span>
             </label>
           </div>
         </div>
         <div
-          className="border-2 border-dashed border-slate-400 rounded-md relative"
+          className="border-2 border-dashed border-blue-300 rounded-xl relative bg-white shadow-md hover:border-blue-400 hover:shadow-lg transition-all"
           onDrop={handleDrop}
           onDragOver={handleDragOver}
           onPaste={handlePaste}
           style={{ minHeight: calculateMinHeight() }} // 动态设置最小高度
         >
-          <div className="flex flex-wrap gap-3 min-h-[240px]">
+          <div className="flex flex-wrap gap-3 min-h-[240px] p-4">
             <LoadingOverlay loading={uploading} />
             {selectedFiles.map((file, index) => (
-              <div key={index} className="relative rounded-2xl w-44 h-48 ring-offset-2 ring-2  mx-3 my-3 flex flex-col items-center">
+              <div key={index} className="relative rounded-2xl w-44 h-48 bg-gray-50 shadow-md hover:shadow-xl transition-all mx-3 my-3 flex flex-col items-center border border-gray-200">
                 <div className="relative w-36 h-36 cursor-pointer" onClick={() => handleImageClick(index)}>
                   {file.type.startsWith('image/') && (
                     <Image
@@ -858,21 +863,21 @@ export default function Home() {
                     </div>
                   )}
                 </div>
-                <div className="flex flex-row items-center  justify-center w-full mt-3">
+                <div className="flex flex-row items-center  justify-center w-full mt-3 gap-2">
                   <button
-                    className="bg-blue-500 text-white rounded-full w-6 h-6 flex items-center justify-center cursor-pointer mx-2"
+                    className="bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-full w-8 h-8 flex items-center justify-center cursor-pointer shadow-md hover:shadow-lg transition-all"
                     onClick={() => handleImageClick(index)}
                   >
                     <FontAwesomeIcon icon={faSearchPlus} />
                   </button>
                   <button
-                    className="bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center cursor-pointer mx-2"
+                    className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-full w-8 h-8 flex items-center justify-center cursor-pointer shadow-md hover:shadow-lg transition-all"
                     onClick={() => handleRemoveImage(index)}
                   >
                     <FontAwesomeIcon icon={faTrashAlt} />
                   </button>
                   <button
-                    className="bg-green-500 text-white rounded-full w-6 h-6 flex items-center justify-center cursor-pointer mx-2"
+                    className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-full w-8 h-8 flex items-center justify-center cursor-pointer shadow-md hover:shadow-lg transition-all"
 
                     onClick={() => handleUpload(file)}
                   >
@@ -886,20 +891,23 @@ export default function Home() {
             {selectedFiles.length === 0 && (
               <div className="absolute -z-10 left-0 top-0 w-full h-full flex items-center justify-center">
 
-                <div className="text-gray-500">
-
-                  拖拽文件到这里或将屏幕截图复制并粘贴到此处上传
+                <div className="text-gray-400 text-center">
+                  <svg className="mx-auto mb-4 w-16 h-16 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                  </svg>
+                  <p className="font-medium">拖拽文件到这里</p>
+                  <p className="text-sm">或将屏幕截图复制并粘贴到此处上传</p>
                 </div>
               </div>
             )}
 
           </div>
         </div>
-        <div className="w-full rounded-md shadow-sm overflow-hidden mt-4 grid grid-cols-8">
-          <div className="md:col-span-1 col-span-8">
+        <div className="w-full rounded-xl shadow-md overflow-hidden mt-6 grid grid-cols-8 gap-2 bg-white p-4">
+          <div className="md:col-span-2 col-span-8">
             <label
               htmlFor="file-upload"
-              className="w-full h-10 bg-blue-500 cursor-pointer flex items-center justify-center text-white"
+              className="w-full h-12 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 cursor-pointer flex items-center justify-center text-white rounded-lg shadow-md hover:shadow-lg transition-all transform hover:scale-105"
             >
               <FontAwesomeIcon icon={faImages} style={{ width: '20px', height: '20px' }} className="mr-2" />
               选择文件
@@ -913,25 +921,23 @@ export default function Home() {
               multiple
             />
           </div>
-          <div className="md:col-span-5 col-span-8">
-            <div className="w-full h-10 bg-slate-200 leading-10 px-4 text-center md:text-left">
-              已选择 {selectedFiles.length} 个文件，共 {getTotalSizeInMB(selectedFiles)} M
+          <div className="md:col-span-4 col-span-8 flex items-center">
+            <div className="w-full h-12 bg-gray-50 rounded-lg leading-12 px-4 text-center md:text-left flex items-center justify-center md:justify-start border border-gray-200">
+              <span className="text-gray-700">已选择 <span className="font-semibold text-blue-600">{selectedFiles.length}</span> 个文件，共 <span className="font-semibold text-purple-600">{getTotalSizeInMB(selectedFiles)} M</span></span>
             </div>
           </div>
-          <div className="md:col-span-1 col-span-3">
+          <div className="md:col-span-1 col-span-4">
             <div
-              className="w-full bg-red-500 cursor-pointer h-10 flex items-center justify-center text-white"
+              className="w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 cursor-pointer h-12 flex items-center justify-center text-white rounded-lg shadow-md hover:shadow-lg transition-all transform hover:scale-105"
               onClick={handleClear}
             >
               <FontAwesomeIcon icon={faTrashAlt} style={{ width: '20px', height: '20px' }} className="mr-2" />
               清除
             </div>
           </div>
-          <div className="md:col-span-1 col-span-5">
+          <div className="md:col-span-1 col-span-4">
             <div
-              className={`w-full bg-green-500 cursor-pointer h-10 flex items-center justify-center text-white ${uploading ? 'pointer-events-none opacity-50' : ''}`}
-              // className={`bg-green-500 text-white rounded-full w-6 h-6 flex items-center justify-center cursor-pointer mx-2 ${uploading ? 'pointer-events-none opacity-50' : ''}`}
-
+              className={`w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 cursor-pointer h-12 flex items-center justify-center text-white rounded-lg shadow-md hover:shadow-lg transition-all transform hover:scale-105 ${uploading ? 'pointer-events-none opacity-50' : ''}`}
               onClick={() => handleUpload()}
             >
               <FontAwesomeIcon icon={faUpload} style={{ width: '20px', height: '20px' }} className="mr-2" />
@@ -942,17 +948,17 @@ export default function Home() {
 
 
         <ToastContainer />
-        <div className="w-full mt-4 min-h-[200px] mb-[60px] ">
+        <div className="w-full mt-6 min-h-[200px] mb-[80px]">
           {uploadedImages.length > 0 && (
             <>
-              <div className="mb-4 border-b border-gray-300 pb-2 flex justify-between items-center">
+              <div className="mb-6 bg-white rounded-xl p-6 shadow-md flex justify-between items-center">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-800">已上传的文件 (Markdown 格式)</h3>
+                  <h3 className="text-xl font-bold text-gray-800 mb-2">已上传的文件</h3>
                   <p className="text-sm text-gray-500">点击链接即可复制</p>
                 </div>
                 <button
                   onClick={handleCopyAll}
-                  className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
+                  className="px-6 py-3 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white rounded-lg shadow-md hover:shadow-lg transition-all transform hover:scale-105 font-medium"
                 >
                   全部复制 ({uploadedImages.length})
                 </button>
@@ -1019,7 +1025,7 @@ export default function Home() {
 
       )}
 
-      <div className="fixed inset-x-0 bottom-0 h-[50px] bg-slate-200  w-full  flex  z-50 justify-center items-center ">
+      <div className="fixed inset-x-0 bottom-0 h-[60px] bg-white/80 backdrop-blur-md border-t border-gray-200 w-full flex z-50 justify-center items-center shadow-sm">
         <Footer />
       </div>
     </main>
