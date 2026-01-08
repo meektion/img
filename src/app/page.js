@@ -765,12 +765,12 @@ export default function Home() {
 
 
   return (
-    <main className="overflow-auto h-full flex w-full min-h-screen flex-col items-center justify-between bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      <header className="fixed top-0 h-[60px] left-0 w-full border-b bg-white/80 backdrop-blur-md flex z-50 justify-between items-center shadow-sm px-4">
-        <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">图床</span>
+    <main className="flex w-full h-screen flex-col items-center bg-gradient-to-br from-blue-50 via-white to-purple-50 overflow-hidden">
+      <header className="w-full h-[60px] border-b bg-white/80 backdrop-blur-md flex z-50 justify-between items-center shadow-sm px-4 flex-shrink-0">
+        <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">北方的博客</span>
         {renderButton()}
       </header>
-      <div className="mt-[80px] w-9/10 sm:w-9/10 md:w-9/10 lg:w-9/10 xl:w-3/5 2xl:w-2/3">
+      <div className="flex-1 w-9/10 sm:w-9/10 md:w-9/10 lg:w-9/10 xl:w-3/5 2xl:w-2/3 overflow-y-auto py-6 px-2" style={{paddingBottom: '80px'}}>
 
         <div className="flex flex-col gap-4 mb-6">
           {/* 标题和基本信息 */}
@@ -949,7 +949,7 @@ export default function Home() {
 
 
         <ToastContainer />
-        <div className="w-full mt-6 min-h-[200px] mb-[80px]">
+        <div className="w-full mt-6 min-h-[200px] mb-4">
           {uploadedImages.length > 0 && (
             <>
               <div className="mb-6 bg-white rounded-xl p-6 shadow-md flex justify-between items-center">
@@ -1026,9 +1026,9 @@ export default function Home() {
 
       )}
 
-      <div className="fixed inset-x-0 bottom-0 h-[60px] bg-white/80 backdrop-blur-md border-t border-gray-200 w-full flex z-50 justify-center items-center shadow-sm">
+      <footer className="w-full h-[60px] bg-white/80 backdrop-blur-md border-t border-gray-200 flex justify-center items-center shadow-sm flex-shrink-0">
         <Footer />
-      </div>
+      </footer>
     </main>
   );
 }
