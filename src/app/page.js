@@ -132,11 +132,10 @@ export default function Home() {
     }
   }
 
-  // 验证文件是否为图片或视频
+  // 验证文件 - 接受所有类型的文件
   const isValidFile = (file) => {
-    const validImageTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/bmp', 'image/svg+xml', 'image/heic', 'image/heif'];
-    const validVideoTypes = ['video/mp4', 'video/mpeg', 'video/quicktime', 'video/x-msvideo', 'video/webm', 'video/x-matroska'];
-    return validImageTypes.includes(file.type) || validVideoTypes.includes(file.type);
+    // 接受所有文件类型
+    return true;
   };
 
   // 验证文件大小
@@ -211,13 +210,18 @@ export default function Home() {
     setSelectedFiles([...selectedFiles, ...processedFiles]);
     const imageCount = processedFiles.filter(f => f.type.startsWith('image/')).length;
     const videoCount = processedFiles.filter(f => f.type.startsWith('video/')).length;
+    const audioCount = processedFiles.filter(f => f.type.startsWith('audio/')).length;
+    const otherCount = processedFiles.length - imageCount - videoCount - audioCount;
+
     let message = `成功添加 ${processedFiles.length} 个文件`;
-    if (imageCount > 0 && videoCount > 0) {
-      message = `成功添加 ${imageCount} 张图片、${videoCount} 个视频`;
-    } else if (imageCount > 0) {
-      message = `成功添加 ${imageCount} 张图片`;
-    } else if (videoCount > 0) {
-      message = `成功添加 ${videoCount} 个视频`;
+    const parts = [];
+    if (imageCount > 0) parts.push(`${imageCount} 张图片`);
+    if (videoCount > 0) parts.push(`${videoCount} 个视频`);
+    if (audioCount > 0) parts.push(`${audioCount} 个音频`);
+    if (otherCount > 0) parts.push(`${otherCount} 个其他文件`);
+
+    if (parts.length > 0) {
+      message = `成功添加 ${parts.join('、')}`;
     }
     if (enableWebP && imageCount > 0) {
       message += '（图片已转换 WebP）';
@@ -228,7 +232,7 @@ export default function Home() {
   const handleClear = () => {
     setSelectedFiles([]);
     setUploadStatus('');
-    // setUploadedImages([]);
+    setUploadedImages([]);
   };
 
   const getTotalSizeInMB = (files) => {
@@ -456,7 +460,14 @@ export default function Home() {
           processedFile = await convertToWebP(file);
         }
         setSelectedFiles([...selectedFiles, processedFile]);
-        const fileType = file.type.startsWith('image/') ? '图片' : '视频';
+        let fileType = '文件';
+        if (file.type.startsWith('image/')) {
+          fileType = '图片';
+        } else if (file.type.startsWith('video/')) {
+          fileType = '视频';
+        } else if (file.type.startsWith('audio/')) {
+          fileType = '音频';
+        }
         toast.success(`${fileType}添加成功${enableWebP && file.type.startsWith('image/') ? '（已转换 WebP）' : ''}`);
 
         break; // 只处理第一个文件
@@ -514,13 +525,18 @@ export default function Home() {
       setSelectedFiles([...selectedFiles, ...processedFiles]);
       const imageCount = processedFiles.filter(f => f.type.startsWith('image/')).length;
       const videoCount = processedFiles.filter(f => f.type.startsWith('video/')).length;
+      const audioCount = processedFiles.filter(f => f.type.startsWith('audio/')).length;
+      const otherCount = processedFiles.length - imageCount - videoCount - audioCount;
+
       let message = `成功添加 ${processedFiles.length} 个文件`;
-      if (imageCount > 0 && videoCount > 0) {
-        message = `成功添加 ${imageCount} 张图片、${videoCount} 个视频`;
-      } else if (imageCount > 0) {
-        message = `成功添加 ${imageCount} 张图片`;
-      } else if (videoCount > 0) {
-        message = `成功添加 ${videoCount} 个视频`;
+      const parts = [];
+      if (imageCount > 0) parts.push(`${imageCount} 张图片`);
+      if (videoCount > 0) parts.push(`${videoCount} 个视频`);
+      if (audioCount > 0) parts.push(`${audioCount} 个音频`);
+      if (otherCount > 0) parts.push(`${otherCount} 个其他文件`);
+
+      if (parts.length > 0) {
+        message = `成功添加 ${parts.join('、')}`;
       }
       if (enableWebP && imageCount > 0) {
         message += '（图片已转换 WebP）';
@@ -546,6 +562,8 @@ export default function Home() {
       setBoxtype("img");
     } else if (selectedFiles[index].type.startsWith('video/')) {
       setBoxtype("video");
+    } else if (selectedFiles[index].type.startsWith('audio/')) {
+      setBoxtype("audio");
     } else {
       setBoxtype("other");
     }
@@ -579,12 +597,18 @@ export default function Home() {
         return;
       }
 
-      // 视频显示 HTML video 标签，图片显示 Markdown 格式
+      // 根据文件类型生成不同的链接格式
       const allLinks = uploadedImages.map(data => {
-        const isVideo = data.type.startsWith('video/');
-        return isVideo
-          ? `<video src="${data.url}" controls style="max-width: 100%; height: auto;"></video>`
-          : `![${data.name}](${data.url})`;
+        if (data.type.startsWith('image/')) {
+          return `![${data.name}](${data.url})`;
+        } else if (data.type.startsWith('video/')) {
+          return `<video src="${data.url}" controls style="max-width: 100%; height: auto;"></video>`;
+        } else if (data.type.startsWith('audio/')) {
+          return `<audio src="${data.url}" controls></audio>`;
+        } else {
+          // 其他文件类型直接返回URL
+          return data.url;
+        }
       }).join('\n');
 
       await navigator.clipboard.writeText(allLinks);
@@ -626,16 +650,33 @@ export default function Home() {
         </video>
       );
 
+    } else if (data.type.startsWith('audio/')) {
+      return (
+        <div
+          key={`audio-${index}`}
+          className="w-36 h-40 m-2 cursor-pointer hover:opacity-80 transition-opacity bg-gray-100 rounded flex flex-col items-center justify-center"
+          onClick={() => handlerenderImageClick(fileUrl, "audio")}
+        >
+          <svg className="w-16 h-16 text-gray-400 mb-2" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z"/>
+          </svg>
+          <p className="text-xs text-gray-600 text-center px-2 truncate w-full">{data.name}</p>
+        </div>
+      );
+
     } else {
       // 其他文件类型
       return (
-        <img
-          key={`image-${index}`}
-          src={data.url}
-          alt={`Uploaded ${index}`}
-          className="object-cover w-36 h-40 m-2 cursor-pointer hover:opacity-80 transition-opacity"
+        <div
+          key={`file-${index}`}
+          className="w-36 h-40 m-2 cursor-pointer hover:opacity-80 transition-opacity bg-gray-100 rounded flex flex-col items-center justify-center"
           onClick={() => handlerenderImageClick(fileUrl, "other")}
-        />
+        >
+          <svg className="w-16 h-16 text-gray-400 mb-2" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd"/>
+          </svg>
+          <p className="text-xs text-gray-600 text-center px-2 truncate w-full">{data.name}</p>
+        </div>
       );
     }
 
@@ -648,12 +689,21 @@ export default function Home() {
     return (
       <div className="flex flex-col">
         {uploadedImages.map((data, index) => {
-          // 判断是视频还是图片
-          const isVideo = data.type.startsWith('video/');
-          const linkText = isVideo
-            ? `<video src="${data.url}" controls style="max-width: 100%; height: auto;"></video>`
-            : `![${data.name}](${data.url})`;
-          const linkTitle = isVideo ? '点击复制 HTML video 标签' : '点击复制 Markdown 链接';
+          // 根据文件类型生成不同的链接格式
+          let linkText, linkTitle;
+          if (data.type.startsWith('image/')) {
+            linkText = `![${data.name}](${data.url})`;
+            linkTitle = '点击复制 Markdown 链接';
+          } else if (data.type.startsWith('video/')) {
+            linkText = `<video src="${data.url}" controls style="max-width: 100%; height: auto;"></video>`;
+            linkTitle = '点击复制 HTML video 标签';
+          } else if (data.type.startsWith('audio/')) {
+            linkText = `<audio src="${data.url}" controls></audio>`;
+            linkTitle = '点击复制 HTML audio 标签';
+          } else {
+            linkText = data.url;
+            linkTitle = '点击复制直链';
+          }
 
           return (
             <div key={index} className="m-2 rounded-2xl ring-offset-2 ring-2 ring-slate-100 flex flex-row">
@@ -791,9 +841,20 @@ export default function Home() {
                       className="w-full h-full"
                     />
                   )}
-                  {!file.type.startsWith('image/') && !file.type.startsWith('video/') && (
-                    <div className="flex items-center justify-center w-full h-full bg-gray-200 text-gray-700">
-                      <p>{file.name}</p>
+                  {file.type.startsWith('audio/') && (
+                    <div className="flex flex-col items-center justify-center w-full h-full bg-gray-100">
+                      <svg className="w-16 h-16 text-gray-400 mb-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z"/>
+                      </svg>
+                      <p className="text-xs text-gray-600 text-center px-2 truncate w-full">{file.name}</p>
+                    </div>
+                  )}
+                  {!file.type.startsWith('image/') && !file.type.startsWith('video/') && !file.type.startsWith('audio/') && (
+                    <div className="flex flex-col items-center justify-center w-full h-full bg-gray-100">
+                      <svg className="w-16 h-16 text-gray-400 mb-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd"/>
+                      </svg>
+                      <p className="text-xs text-gray-600 text-center px-2 truncate w-full">{file.name}</p>
                     </div>
                   )}
                 </div>
@@ -846,7 +907,7 @@ export default function Home() {
             <input
               id="file-upload"
               type="file"
-              accept="image/*,video/*"
+              accept="*/*"
               className="hidden"
               onChange={handleFileChange}
               multiple
@@ -928,13 +989,28 @@ export default function Home() {
                 className="object-cover w-9/10  h-auto rounded-lg"
                 controls
               />
+            ) : boxType === "audio" ? (
+              <div className="p-8 bg-white rounded-lg">
+                <div className="flex flex-col items-center">
+                  <svg className="w-24 h-24 text-gray-400 mb-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z"/>
+                  </svg>
+                  <audio controls className="w-full max-w-md">
+                    <source src={selectedImage} />
+                    Your browser does not support the audio element.
+                  </audio>
+                </div>
+              </div>
             ) : boxType === "other" ? (
-              // 这里可以渲染你想要的其他内容或组件
-              <div className="p-4 bg-white text-black rounded">
-                <p>Unsupported file type</p>
+              <div className="p-8 bg-white rounded-lg">
+                <div className="flex flex-col items-center">
+                  <svg className="w-24 h-24 text-gray-400 mb-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd"/>
+                  </svg>
+                  <p className="text-gray-700">无法预览此文件类型</p>
+                </div>
               </div>
             ) : (
-              // 你可以选择一个默认的内容或者返回 null
               <div>未知类型</div>
             )}
           </div>
