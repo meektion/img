@@ -554,6 +554,7 @@ export default function Home() {
 
   // 根据图片数量动态计算容器高度
   const calculateMinHeight = () => {
+    if (selectedFiles.length === 0) return '180px';
     const rows = Math.ceil(selectedFiles.length / 4);
     return `${rows * 100}px`;
   };
@@ -765,10 +766,8 @@ export default function Home() {
 
   return (
     <main className="overflow-auto h-full flex w-full min-h-screen flex-col items-center justify-between bg-gradient-to-br from-blue-50 via-white to-purple-50">
-      <header className="fixed top-0 h-[60px] left-0 w-full border-b bg-white/80 backdrop-blur-md flex z-50 justify-center items-center shadow-sm">
-        <nav className="flex justify-between items-center w-full max-w-4xl px-4">
-          <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">图床</span>
-        </nav>
+      <header className="fixed top-0 h-[60px] left-0 w-full border-b bg-white/80 backdrop-blur-md flex z-50 justify-between items-center shadow-sm px-4">
+        <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">图床</span>
         {renderButton()}
       </header>
       <div className="mt-[80px] w-9/10 sm:w-9/10 md:w-9/10 lg:w-9/10 xl:w-3/5 2xl:w-2/3">
@@ -791,8 +790,8 @@ export default function Home() {
                 onChange={handleSelectChange}
                 className="px-4 py-2 border border-gray-300 rounded-lg bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
               >
-                <option value="tgchannel">Telegram (50MB)</option>
-                <option value="r2">R2 (100MB)</option>
+                <option value="tgchannel">Telegram</option>
+                <option value="r2">R2</option>
               </select>
             </div>
 
@@ -826,7 +825,7 @@ export default function Home() {
           onPaste={handlePaste}
           style={{ minHeight: calculateMinHeight() }} // 动态设置最小高度
         >
-          <div className="flex flex-wrap gap-3 min-h-[240px] p-4">
+          <div className="flex flex-wrap gap-3 min-h-[180px] p-4">
             <LoadingOverlay loading={uploading} />
             {selectedFiles.map((file, index) => (
               <div key={index} className="relative rounded-2xl w-44 h-48 bg-gray-50 shadow-md hover:shadow-xl transition-all mx-3 my-3 flex flex-col items-center border border-gray-200">
@@ -889,7 +888,7 @@ export default function Home() {
 
 
             {selectedFiles.length === 0 && (
-              <div className="absolute -z-10 left-0 top-0 w-full h-full flex items-center justify-center">
+              <div className="absolute left-0 top-0 w-full h-full flex items-center justify-center pointer-events-none">
 
                 <div className="text-gray-400 text-center">
                   <svg className="mx-auto mb-4 w-16 h-16 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -903,45 +902,47 @@ export default function Home() {
 
           </div>
         </div>
-        <div className="w-full rounded-xl shadow-md overflow-hidden mt-6 grid grid-cols-8 gap-2 bg-white p-4">
-          <div className="md:col-span-2 col-span-8">
-            <label
-              htmlFor="file-upload"
-              className="w-full h-12 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 cursor-pointer flex items-center justify-center text-white rounded-lg shadow-md hover:shadow-lg transition-all transform hover:scale-105"
-            >
-              <FontAwesomeIcon icon={faImages} style={{ width: '20px', height: '20px' }} className="mr-2" />
-              选择文件
-            </label>
-            <input
-              id="file-upload"
-              type="file"
-              accept="*/*"
-              className="hidden"
-              onChange={handleFileChange}
-              multiple
-            />
-          </div>
-          <div className="md:col-span-4 col-span-8 flex items-center">
-            <div className="w-full h-12 bg-gray-50 rounded-lg leading-12 px-4 text-center md:text-left flex items-center justify-center md:justify-start border border-gray-200">
-              <span className="text-gray-700">已选择 <span className="font-semibold text-blue-600">{selectedFiles.length}</span> 个文件，共 <span className="font-semibold text-purple-600">{getTotalSizeInMB(selectedFiles)} M</span></span>
+        <div className="w-full rounded-xl shadow-md overflow-hidden mt-6 bg-white p-3">
+          <div className="grid grid-cols-2 md:grid-cols-8 gap-2">
+            <div className="col-span-2 md:col-span-2">
+              <label
+                htmlFor="file-upload"
+                className="w-full h-11 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 cursor-pointer flex items-center justify-center text-white rounded-lg shadow-md hover:shadow-lg transition-all"
+              >
+                <FontAwesomeIcon icon={faImages} style={{ width: '18px', height: '18px' }} className="mr-2" />
+                <span className="text-sm">选择文件</span>
+              </label>
+              <input
+                id="file-upload"
+                type="file"
+                accept="*/*"
+                className="hidden"
+                onChange={handleFileChange}
+                multiple
+              />
             </div>
-          </div>
-          <div className="md:col-span-1 col-span-4">
-            <div
-              className="w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 cursor-pointer h-12 flex items-center justify-center text-white rounded-lg shadow-md hover:shadow-lg transition-all transform hover:scale-105"
-              onClick={handleClear}
-            >
-              <FontAwesomeIcon icon={faTrashAlt} style={{ width: '20px', height: '20px' }} className="mr-2" />
-              清除
+            <div className="col-span-2 md:col-span-4 flex items-center">
+              <div className="w-full h-11 bg-gray-50 rounded-lg px-3 text-center md:text-left flex items-center justify-center md:justify-start border border-gray-200">
+                <span className="text-xs md:text-sm text-gray-700">已选 <span className="font-semibold text-blue-600">{selectedFiles.length}</span> 个 · <span className="font-semibold text-purple-600">{getTotalSizeInMB(selectedFiles)}M</span></span>
+              </div>
             </div>
-          </div>
-          <div className="md:col-span-1 col-span-4">
-            <div
-              className={`w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 cursor-pointer h-12 flex items-center justify-center text-white rounded-lg shadow-md hover:shadow-lg transition-all transform hover:scale-105 ${uploading ? 'pointer-events-none opacity-50' : ''}`}
-              onClick={() => handleUpload()}
-            >
-              <FontAwesomeIcon icon={faUpload} style={{ width: '20px', height: '20px' }} className="mr-2" />
-              上传
+            <div className="col-span-1 md:col-span-1">
+              <div
+                className="w-full bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 cursor-pointer h-11 flex items-center justify-center text-white rounded-lg shadow-md hover:shadow-lg transition-all"
+                onClick={handleClear}
+              >
+                <FontAwesomeIcon icon={faTrashAlt} style={{ width: '18px', height: '18px' }} className="md:mr-2" />
+                <span className="hidden md:inline text-sm">清除</span>
+              </div>
+            </div>
+            <div className="col-span-1 md:col-span-1">
+              <div
+                className={`w-full bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 cursor-pointer h-11 flex items-center justify-center text-white rounded-lg shadow-md hover:shadow-lg transition-all ${uploading ? 'pointer-events-none opacity-50' : ''}`}
+                onClick={() => handleUpload()}
+              >
+                <FontAwesomeIcon icon={faUpload} style={{ width: '18px', height: '18px' }} className="md:mr-2" />
+                <span className="hidden md:inline text-sm">上传</span>
+              </div>
             </div>
           </div>
         </div>
