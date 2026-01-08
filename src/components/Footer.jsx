@@ -10,7 +10,7 @@ export default function Footer() {
   return (
     <footer className="w-full h-full text-center flex flex-col justify-center items-center">
       <div>
-        <p className="text-xs text-gray-600">
+        <p className="text-xs md:text-sm text-gray-600">
           © {year}{' '}
           <Link
             href="https://134688.xyz"
