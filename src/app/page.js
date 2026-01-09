@@ -1,5 +1,5 @@
 "use client";
-import { useState, useRef, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { signOut } from "next-auth/react"
 import Image from "next/image";
 import { faImages, faTrashAlt, faUpload, faSearchPlus } from '@fortawesome/free-solid-svg-icons';
@@ -27,19 +27,26 @@ export default function Home() {
   const [uploadedImages, setUploadedImages] = useState([]);
   const [uploadedFilesNum, setUploadedFilesNum] = useState(0);
   const [selectedImage, setSelectedImage] = useState(null); // 添加状态用于跟踪选中的放大图片
-  const [activeTab, setActiveTab] = useState('preview');
   const [uploading, setUploading] = useState(false);
   const [IP, setIP] = useState('');
   const [Total, setTotal] = useState('?');
-  const [selectedOption, setSelectedOption] = useState('tgchannel'); // 初始选择第一个选项
-  const [isAuthapi, setisAuthapi] = useState(false); // 初始选择第一个选项
-  const [Loginuser, setLoginuser] = useState(''); // 初始选择第一个选项
+  const [selectedOption, setSelectedOption] = useState('tgchannel'); // 默认 TG_Channel
+  const [isAuthapi, setisAuthapi] = useState(false);
+  const [Loginuser, setLoginuser] = useState('');
   const [boxType, setBoxtype] = useState("img");
+  const [enableWebP, setEnableWebP] = useState(false); // WebP 转换开关（默认关闭）
+  const [uploadPin, setUploadPin] = useState(''); // 上传密码
+
+  // 不同接口的文件大小限制
+  const FILE_SIZE_LIMITS = {
+    'tgchannel': 50 * 1024 * 1024,   // 50 MB - Telegram Bot API 限制
+    'r2': 100 * 1024 * 1024,         // 100 MB - Cloudflare R2 限制
+  };
+
+  // 获取当前接口的大小限制
+  const getMaxFileSize = () => FILE_SIZE_LIMITS[selectedOption] || 50 * 1024 * 1024;
 
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
-
-
-  const parentRef = useRef(null);
 
 
 
@@ -95,7 +102,7 @@ export default function Home() {
 
       } else {
         setisAuthapi(false)
-        setSelectedOption("58img")
+        // 未登录时默认使用 TG_Channel
       }
 
 
@@ -125,27 +132,206 @@ export default function Home() {
     }
   }
 
-  const handleFileChange = (event) => {
+  // 验证文件 - 接受所有类型的文件
+  const isValidFile = (file) => {
+    // 接受所有文件类型
+    return true;
+  };
+
+  // 验证文件大小
+  const isValidFileSize = (file) => {
+    const maxSize = getMaxFileSize();
+    if (file.size > maxSize) {
+      const fileSizeMB = (file.size / (1024 * 1024)).toFixed(2);
+      const maxSizeMB = (maxSize / (1024 * 1024)).toFixed(0);
+      toast.error(`${file.name} 文件过大 (${fileSizeMB} MB)，当前接口最大支持 ${maxSizeMB} MB`);
+      return false;
+    }
+    return true;
+  };
+
+  const handleFileChange = async (event) => {
     const newFiles = event.target.files;
-    const filteredFiles = Array.from(newFiles).filter(file =>
+    const allFiles = Array.from(newFiles);
+
+    if (allFiles.length === 0) {
+      return;
+    }
+
+    // 显示处理提示
+    toast.info(`正在处理 ${allFiles.length} 个文件...`, { autoClose: 2000 });
+
+    // 过滤出图片和视频文件并验证大小
+    const validFiles = allFiles.filter(file => {
+      if (!isValidFile(file)) {
+        toast.error(`${file.name} 不是支持的文件格式，已跳过`);
+        return false;
+      }
+      if (!isValidFileSize(file)) {
+        return false; // 文件过大，已在 isValidFileSize 中提示
+      }
+      return true;
+    });
+
+    if (validFiles.length === 0) {
+      toast.warning('没有可用的文件');
+      return;
+    }
+
+    const filteredFiles = validFiles.filter(file =>
       !selectedFiles.find(selFile => selFile.name === file.name));
     // 过滤掉已经在 uploadedImages 数组中存在的文件
     const uniqueFiles = filteredFiles.filter(file =>
       !uploadedImages.find(upImg => upImg.name === file.name)
     );
 
-    setSelectedFiles([...selectedFiles, ...uniqueFiles]);
+    if (uniqueFiles.length === 0 && allFiles.length > 0) {
+      toast.warning('所选文件已存在，未添加新文件');
+      return;
+    }
+
+    // 根据开关决定是否转换 WebP（只对图片转换）
+    let processedFiles;
+    if (enableWebP) {
+      // 只对图片转换为 WebP，视频保持原样
+      processedFiles = await Promise.all(
+        uniqueFiles.map(async (file) => {
+          if (file.type.startsWith('image/')) {
+            return await convertToWebP(file);
+          }
+          return file; // 视频不转换
+        })
+      );
+    } else {
+      // 直接使用原文件，不转换
+      processedFiles = uniqueFiles;
+    }
+
+    setSelectedFiles([...selectedFiles, ...processedFiles]);
+    const imageCount = processedFiles.filter(f => f.type.startsWith('image/')).length;
+    const videoCount = processedFiles.filter(f => f.type.startsWith('video/')).length;
+    const audioCount = processedFiles.filter(f => f.type.startsWith('audio/')).length;
+    const otherCount = processedFiles.length - imageCount - videoCount - audioCount;
+
+    let message = `成功添加 ${processedFiles.length} 个文件`;
+    const parts = [];
+    if (imageCount > 0) parts.push(`${imageCount} 张图片`);
+    if (videoCount > 0) parts.push(`${videoCount} 个视频`);
+    if (audioCount > 0) parts.push(`${audioCount} 个音频`);
+    if (otherCount > 0) parts.push(`${otherCount} 个其他文件`);
+
+    if (parts.length > 0) {
+      message = `成功添加 ${parts.join('、')}`;
+    }
+    if (enableWebP && imageCount > 0) {
+      message += '（图片已转换 WebP）';
+    }
+    toast.success(message);
   };
 
   const handleClear = () => {
     setSelectedFiles([]);
     setUploadStatus('');
-    // setUploadedImages([]);
+    setUploadedImages([]);
   };
 
   const getTotalSizeInMB = (files) => {
     const totalSizeInBytes = Array.from(files).reduce((acc, file) => acc + file.size, 0);
     return (totalSizeInBytes / (1024 * 1024)).toFixed(2); // 转换为MB并保留两位小数
+  };
+
+  // 将图片转换为 WebP 格式（带超时和降级处理）
+  const convertToWebP = async (file) => {
+    // 如果不是图片文件，直接返回原文件
+    if (!file.type.startsWith('image/')) {
+      return file;
+    }
+
+    // 如果已经是 WebP 格式，直接返回
+    if (file.type === 'image/webp') {
+      return file;
+    }
+
+    // 检查浏览器是否支持 WebP
+    const canvas = document.createElement('canvas');
+    const supportsWebP = canvas.toDataURL('image/webp').indexOf('data:image/webp') === 0;
+
+    if (!supportsWebP) {
+      console.warn('浏览器不支持 WebP，使用原文件');
+      return file;
+    }
+
+    // 设置超时时间（5秒）
+    const timeout = 5000;
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('转换超时')), timeout)
+    );
+
+    const convertPromise = new Promise((resolve, reject) => {
+      const reader = new FileReader();
+
+      reader.onload = (e) => {
+        const img = new Image();
+
+        img.onload = () => {
+          try {
+            // 创建 canvas
+            const canvas = document.createElement('canvas');
+            canvas.width = img.width;
+            canvas.height = img.height;
+
+            // 绘制图片到 canvas
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+
+            // 转换为 WebP，质量设置为 0.8 (80%)
+            canvas.toBlob(
+              (blob) => {
+                if (blob) {
+                  // 生成新的文件名（保留原文件名，只改扩展名）
+                  const originalName = file.name.replace(/\.[^/.]+$/, '');
+                  const newFile = new File([blob], `${originalName}.webp`, {
+                    type: 'image/webp',
+                    lastModified: Date.now()
+                  });
+                  resolve(newFile);
+                } else {
+                  // 转换失败，返回原文件
+                  console.warn('WebP 转换失败，使用原文件');
+                  resolve(file);
+                }
+              },
+              'image/webp',
+              0.8 // 质量参数 80%
+            );
+          } catch (error) {
+            console.error('Canvas 操作失败:', error);
+            resolve(file); // 失败时返回原文件
+          }
+        };
+
+        img.onerror = () => {
+          console.error('图片加载失败');
+          resolve(file); // 失败时返回原文件
+        };
+
+        img.src = e.target.result;
+      };
+
+      reader.onerror = () => {
+        console.error('文件读取失败');
+        resolve(file); // 失败时返回原文件
+      };
+
+      reader.readAsDataURL(file);
+    });
+
+    try {
+      return await Promise.race([convertPromise, timeoutPromise]);
+    } catch (error) {
+      console.warn('转换超时或失败，使用原文件:', error.message);
+      return file; // 超时或失败时返回原文件
+    }
   };
 
 
@@ -161,21 +347,25 @@ export default function Home() {
       return;
     }
 
-    const formFieldName = selectedOption === "tencent" ? "media" : "file";
+    // 验证密码
+    if (!uploadPin || uploadPin.length !== 6) {
+      toast.error('请输入6位数字密码');
+      setUploading(false);
+      return;
+    }
+
     let successCount = 0;
 
     try {
       for (const file of filesToUpload) {
         const formData = new FormData();
 
-        formData.append(formFieldName, file);
+        formData.append('file', file);
+        formData.append('pin', uploadPin); // 添加密码到formData
 
         try {
-          const targetUrl = selectedOption === "tgchannel" || selectedOption === "r2"
-            ? `/api/enableauthapi/${selectedOption}`
-            : `/api/${selectedOption}`;
-
-          // const response = await fetch("https://img.131213.xyz/api/tencent", {
+          // 根据选择的接口上传
+          const targetUrl = `/api/enableauthapi/${selectedOption}`;
           const response = await fetch(targetUrl, {
             method: 'POST',
             body: formData,
@@ -230,7 +420,11 @@ export default function Home() {
       }
 
       setUploadedFilesNum(uploadedFilesNum + successCount);
-      toast.success(`已成功上传 ${successCount} 张图片`);
+      if (successCount === 1) {
+        toast.success(`文件上传成功`);
+      } else {
+        toast.success(`已成功上传 ${successCount} 个文件`);
+      }
 
     } catch (error) {
       console.error('上传过程中出现错误:', error);
@@ -244,26 +438,110 @@ export default function Home() {
 
 
 
-  const handlePaste = (event) => {
+  const handlePaste = async (event) => {
     const clipboardItems = event.clipboardData.items;
 
     for (let i = 0; i < clipboardItems.length; i++) {
       const item = clipboardItems[i];
-      if (item.kind === 'file' && item.type.includes('image')) {
+      if (item.kind === 'file') {
         const file = item.getAsFile();
-        setSelectedFiles([...selectedFiles, file]);
+
+        // 验证是否为支持的文件格式
+        if (!isValidFile(file)) {
+          toast.error('粘贴的文件不是支持的格式');
+          return;
+        }
+
+        toast.info('正在处理粘贴的文件...', { autoClose: 1000 });
+
+        // 根据开关决定是否转换（只对图片转换）
+        let processedFile = file;
+        if (enableWebP && file.type.startsWith('image/')) {
+          processedFile = await convertToWebP(file);
+        }
+        setSelectedFiles([...selectedFiles, processedFile]);
+        let fileType = '文件';
+        if (file.type.startsWith('image/')) {
+          fileType = '图片';
+        } else if (file.type.startsWith('video/')) {
+          fileType = '视频';
+        } else if (file.type.startsWith('audio/')) {
+          fileType = '音频';
+        }
+        toast.success(`${fileType}添加成功${enableWebP && file.type.startsWith('image/') ? '（已转换 WebP）' : ''}`);
+
         break; // 只处理第一个文件
       }
     }
   };
 
-  const handleDrop = (event) => {
+  const handleDrop = async (event) => {
     event.preventDefault();
     const files = event.dataTransfer.files;
 
     if (files.length > 0) {
-      const filteredFiles = Array.from(files).filter(file => !selectedFiles.find(selFile => selFile.name === file.name));
-      setSelectedFiles([...selectedFiles, ...filteredFiles]);
+      const allFiles = Array.from(files);
+
+      toast.info(`正在处理 ${allFiles.length} 个文件...`, { autoClose: 2000 });
+
+      // 过滤出支持的文件
+      const validFiles = allFiles.filter(file => {
+        if (!isValidFile(file)) {
+          toast.error(`${file.name} 不是支持的文件格式，已跳过`);
+          return false;
+        }
+        return true;
+      });
+
+      if (validFiles.length === 0) {
+        toast.warning('没有可用的文件');
+        return;
+      }
+
+      const filteredFiles = validFiles.filter(file => !selectedFiles.find(selFile => selFile.name === file.name));
+
+      if (filteredFiles.length === 0) {
+        if (allFiles.length > 0) {
+          toast.warning('所选文件已存在，未添加新文件');
+        }
+        return;
+      }
+
+      // 根据开关决定是否转换 WebP（只对图片）
+      let processedFiles;
+      if (enableWebP) {
+        processedFiles = await Promise.all(
+          filteredFiles.map(async (file) => {
+            if (file.type.startsWith('image/')) {
+              return await convertToWebP(file);
+            }
+            return file; // 视频不转换
+          })
+        );
+      } else {
+        processedFiles = filteredFiles;
+      }
+
+      setSelectedFiles([...selectedFiles, ...processedFiles]);
+      const imageCount = processedFiles.filter(f => f.type.startsWith('image/')).length;
+      const videoCount = processedFiles.filter(f => f.type.startsWith('video/')).length;
+      const audioCount = processedFiles.filter(f => f.type.startsWith('audio/')).length;
+      const otherCount = processedFiles.length - imageCount - videoCount - audioCount;
+
+      let message = `成功添加 ${processedFiles.length} 个文件`;
+      const parts = [];
+      if (imageCount > 0) parts.push(`${imageCount} 张图片`);
+      if (videoCount > 0) parts.push(`${videoCount} 个视频`);
+      if (audioCount > 0) parts.push(`${audioCount} 个音频`);
+      if (otherCount > 0) parts.push(`${otherCount} 个其他文件`);
+
+      if (parts.length > 0) {
+        message = `成功添加 ${parts.join('、')}`;
+      }
+      if (enableWebP && imageCount > 0) {
+        message += '（图片已转换 WebP）';
+      }
+      toast.success(message);
     }
   };
 
@@ -284,6 +562,8 @@ export default function Home() {
       setBoxtype("img");
     } else if (selectedFiles[index].type.startsWith('video/')) {
       setBoxtype("video");
+    } else if (selectedFiles[index].type.startsWith('audio/')) {
+      setBoxtype("audio");
     } else {
       setBoxtype("other");
     }
@@ -310,17 +590,33 @@ export default function Home() {
     }
   };
 
-  const handleCopyCode = async () => {
-    const codeElements = parentRef.current.querySelectorAll('code');
-    const values = Array.from(codeElements).map(code => code.textContent);
+  const handleCopyAll = async () => {
     try {
-      await navigator.clipboard.writeText(values.join("\n"));
-      toast.success(`链接复制成功`);
+      if (uploadedImages.length === 0) {
+        toast.warning('没有可复制的文件');
+        return;
+      }
 
-    } catch (error) {
-      toast.error(`链接复制失败\n${error}`)
+      // 根据文件类型生成不同的链接格式
+      const allLinks = uploadedImages.map(data => {
+        if (data.type.startsWith('image/')) {
+          return `![${data.name}](${data.url})`;
+        } else if (data.type.startsWith('video/')) {
+          return `<video src="${data.url}" controls style="max-width: 100%; height: auto;"></video>`;
+        } else if (data.type.startsWith('audio/')) {
+          return `<audio src="${data.url}" controls></audio>`;
+        } else {
+          // 其他文件类型直接返回URL
+          return data.url;
+        }
+      }).join('\n');
+
+      await navigator.clipboard.writeText(allLinks);
+      toast.success(`已复制 ${uploadedImages.length} 个文件链接`);
+    } catch (err) {
+      toast.error("复制失败")
     }
-  }
+  };
 
   const handlerenderImageClick = (imageUrl, type) => {
     setBoxtype(type);
@@ -336,7 +632,7 @@ export default function Home() {
           key={`image-${index}`}
           src={data.url}
           alt={`Uploaded ${index}`}
-          className="object-cover w-36 h-40 m-2"
+          className="object-cover w-36 h-40 m-2 cursor-pointer hover:opacity-80 transition-opacity"
           onClick={() => handlerenderImageClick(fileUrl, "img")}
         />
       );
@@ -346,7 +642,7 @@ export default function Home() {
         <video
           key={`video-${index}`}
           src={data.url}
-          className="object-cover w-36 h-40 m-2"
+          className="object-cover w-36 h-40 m-2 cursor-pointer"
           controls
           onClick={() => handlerenderImageClick(fileUrl, "video")}
         >
@@ -354,16 +650,33 @@ export default function Home() {
         </video>
       );
 
+    } else if (data.type.startsWith('audio/')) {
+      return (
+        <div
+          key={`audio-${index}`}
+          className="w-36 h-40 m-2 cursor-pointer hover:opacity-80 transition-opacity bg-gray-100 rounded flex flex-col items-center justify-center"
+          onClick={() => handlerenderImageClick(fileUrl, "audio")}
+        >
+          <svg className="w-16 h-16 text-gray-400 mb-2" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z"/>
+          </svg>
+          <p className="text-xs text-gray-600 text-center px-2 truncate w-full">{data.name}</p>
+        </div>
+      );
+
     } else {
       // 其他文件类型
       return (
-        <img
-          key={`image-${index}`}
-          src={data.url}
-          alt={`Uploaded ${index}`}
-          className="object-cover w-36 h-40 m-2"
+        <div
+          key={`file-${index}`}
+          className="w-36 h-40 m-2 cursor-pointer hover:opacity-80 transition-opacity bg-gray-100 rounded flex flex-col items-center justify-center"
           onClick={() => handlerenderImageClick(fileUrl, "other")}
-        />
+        >
+          <svg className="w-16 h-16 text-gray-400 mb-2" fill="currentColor" viewBox="0 0 20 20">
+            <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd"/>
+          </svg>
+          <p className="text-xs text-gray-600 text-center px-2 truncate w-full">{data.name}</p>
+        </div>
       );
     }
 
@@ -372,82 +685,47 @@ export default function Home() {
   };
 
 
-  const renderTabContent = () => {
-    switch (activeTab) {
-      case 'preview':
-        return (
-          <div className=" flex flex-col ">
-            {uploadedImages.map((data, index) => (
-              <div key={index} className="m-2 rounded-2xl ring-offset-2 ring-2  ring-slate-100 flex flex-row ">
-                {renderFile(data, index)}
-                <div className="flex flex-col justify-center w-4/5">
-                  {[
-                    { text: data.url, onClick: () => handleCopy(data.url) },
-                    { text: `![${data.name}](${data.url})`, onClick: () => handleCopy(`![${data.name}](${data.url})`) },
-                    { text: `<a href="${data.url}" target="_blank"><img src="${data.url}"></a>`, onClick: () => handleCopy(`<a href="${data.url}" target="_blank"><img src="${data.url}"></a>`) },
-                    { text: `[img]${data.url}[/img]`, onClick: () => handleCopy(`[img]${data.url}[/img]`) },
-                  ].map((item, i) => (
-                    <input
-                      key={`input-${i}`}
-                      readOnly
-                      value={item.text}
-                      onClick={item.onClick}
-                      className="px-3 my-1 py-2 border border-gray-300 rounded-lg bg-white text-sm text-gray-800 focus:outline-none placeholder-gray-400"
-                    />
-                  ))}
-                </div>
-              </div>
+  const renderUploadedImages = () => {
+    return (
+      <div className="flex flex-col">
+        {uploadedImages.map((data, index) => {
+          // 根据文件类型生成不同的链接格式
+          let linkText, linkTitle;
+          if (data.type.startsWith('image/')) {
+            linkText = `![${data.name}](${data.url})`;
+            linkTitle = '点击复制 Markdown 链接';
+          } else if (data.type.startsWith('video/')) {
+            linkText = `<video src="${data.url}" controls style="max-width: 100%; height: auto;"></video>`;
+            linkTitle = '点击复制 HTML video 标签';
+          } else if (data.type.startsWith('audio/')) {
+            linkText = `<audio src="${data.url}" controls></audio>`;
+            linkTitle = '点击复制 HTML audio 标签';
+          } else {
+            linkText = data.url;
+            linkTitle = '点击复制直链';
+          }
 
-            ))}
-          </div>
-        );
-      case 'htmlLinks':
-        return (
-          <div ref={parentRef} className=" p-4 bg-slate-100  " onClick={handleCopyCode}>
-            {uploadedImages.map((data, index) => (
-              <div key={index} className="mb-2 ">
-                <code className=" w-2 break-all">{`<img src="${data.url}" alt="${data.name}" />`}</code>
+          return (
+            <div key={index} className="m-2 rounded-2xl ring-offset-2 ring-2 ring-slate-100 flex flex-row">
+              {renderFile(data, index)}
+              <div className="flex flex-col justify-center w-4/5">
+                <input
+                  readOnly
+                  value={linkText}
+                  onClick={() => handleCopy(linkText)}
+                  className="px-3 my-1 py-2 border border-gray-300 rounded-lg bg-white text-sm text-gray-800 focus:outline-none placeholder-gray-400 cursor-pointer hover:bg-gray-50"
+                  title={linkTitle}
+                />
               </div>
-            ))}
-          </div >
-        );
-      case 'markdownLinks':
-        return (
-          <div ref={parentRef} className=" p-4 bg-slate-100  " onClick={handleCopyCode}>
-            {uploadedImages.map((data, index) => (
-              <div key={index} className="mb-2">
-                <code className=" w-2 break-all">{`![${data.name}](${data.url})`}</code>
-              </div>
-            ))}
-          </div>
-        );
-      case 'bbcodeLinks':
-        return (
-          <div ref={parentRef} className=" p-4 bg-slate-100  " onClick={handleCopyCode}>
-            {uploadedImages.map((data, index) => (
-              <div key={index} className="mb-2">
-                <code className=" w-2 break-all">{`[img]${data.url}[/img]`}</code>
-              </div>
-            ))}
-          </div>
-        );
-      case 'viewLinks':
-        return (
-          <div ref={parentRef} className=" p-4 bg-slate-100  " onClick={handleCopyCode}>
-            {uploadedImages.map((data, index) => (
-              <div key={index} className="mb-2">
-                <code className=" w-2 break-all">{`${data.url}`}</code>
-              </div>
-            ))}
-          </div>
-        );
-      default:
-        return null;
-    }
+            </div>
+          );
+        })}
+      </div>
+    );
   };
 
   const handleSelectChange = (e) => {
-    setSelectedOption(e.target.value); // 更新选择框的值
+    setSelectedOption(e.target.value);
   };
 
 
@@ -490,31 +768,51 @@ export default function Home() {
       </header>
       <div className="mt-[60px] w-9/10 sm:w-9/10 md:w-9/10 lg:w-9/10 xl:w-3/5 2xl:w-2/3">
 
-        <div className="flex flex-row">
+        <div className="flex flex-col gap-3 mb-4">
+          {/* 标题和基本信息 */}
           <div className="flex flex-col">
-            <div className="text-gray-800 text-lg">图片或视频上传
-            </div>
-            <div className="mb-4 text-sm text-gray-500">
-              上传文件最大 5 MB;本站已托管 <span className="text-cyan-600">{Total}</span> 张图片; 你访问本站的IP是：<span className="text-cyan-600">{IP}</span>
+            <div className="text-gray-800 text-lg font-medium">文件上传</div>
+            <div className="text-sm text-gray-500">
+              已托管 <span className="text-cyan-600">{Total}</span> 张 · IP: <span className="text-cyan-600">{IP}</span>
             </div>
           </div>
-          <div className="flex  flex-col sm:flex-col   md:w-auto lg:flex-row xl:flex-row  2xl:flex-row  mx-auto items-center  ">
-            <span className=" text-lg sm:text-sm   md:text-sm lg:text-xl xl:text-xl  2xl:text-xl">上传接口：</span>
-            <select
-              value={selectedOption} // 将选择框的值绑定到状态中的 selectedOption
-              onChange={handleSelectChange} // 当选择框的值发生变化时触发 handleSelectChange 函数
-              className="text-lg p-2 border  rounded text-center w-auto sm:w-auto md:w-auto lg:w-auto xl:w-auto  2xl:w-36">
-              <option value="tg" >TG(会失效)</option>
-              <option value="tgchannel">TG_Channel</option>
-              <option value="r2">R2</option>
-              {/* <option value="vviptuangou">vviptuangou</option> */}
-              <option value="58img">58img</option>
-              {/* <option value="tencent">tencent</option> */}
 
-            </select>
+          {/* 接口选择和WebP转换 */}
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-700">接口:</span>
+              <select
+                value={selectedOption}
+                onChange={handleSelectChange}
+                className="px-3 py-1.5 border border-gray-300 rounded bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="tgchannel">Telegram (50MB)</option>
+                <option value="r2">R2 (100MB)</option>
+              </select>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-700">密码:</span>
+              <input
+                type="text"
+                maxLength="6"
+                placeholder="6位数字"
+                value={uploadPin}
+                onChange={(e) => setUploadPin(e.target.value.replace(/\D/g, ''))}
+                className="px-3 py-1.5 border border-gray-300 rounded bg-white text-sm w-24 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
+            <label className="flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={enableWebP}
+                onChange={(e) => setEnableWebP(e.target.checked)}
+                className="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 focus:ring-2"
+              />
+              <span className="ml-2 text-sm text-gray-700">转换 WebP</span>
+            </label>
           </div>
-
-
         </div>
         <div
           className="border-2 border-dashed border-slate-400 rounded-md relative"
@@ -527,12 +825,13 @@ export default function Home() {
             <LoadingOverlay loading={uploading} />
             {selectedFiles.map((file, index) => (
               <div key={index} className="relative rounded-2xl w-44 h-48 ring-offset-2 ring-2  mx-3 my-3 flex flex-col items-center">
-                <div className="relative w-36 h-36 " onClick={() => handleImageClick(index)}>
+                <div className="relative w-36 h-36 cursor-pointer" onClick={() => handleImageClick(index)}>
                   {file.type.startsWith('image/') && (
                     <Image
                       src={URL.createObjectURL(file)}
                       alt={`Preview ${file.name}`}
                       fill={true}
+                      className="hover:opacity-80 transition-opacity"
                     />
                   )}
                   {file.type.startsWith('video/') && (
@@ -542,9 +841,20 @@ export default function Home() {
                       className="w-full h-full"
                     />
                   )}
-                  {!file.type.startsWith('image/') && !file.type.startsWith('video/') && (
-                    <div className="flex items-center justify-center w-full h-full bg-gray-200 text-gray-700">
-                      <p>{file.name}</p>
+                  {file.type.startsWith('audio/') && (
+                    <div className="flex flex-col items-center justify-center w-full h-full bg-gray-100">
+                      <svg className="w-16 h-16 text-gray-400 mb-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z"/>
+                      </svg>
+                      <p className="text-xs text-gray-600 text-center px-2 truncate w-full">{file.name}</p>
+                    </div>
+                  )}
+                  {!file.type.startsWith('image/') && !file.type.startsWith('video/') && !file.type.startsWith('audio/') && (
+                    <div className="flex flex-col items-center justify-center w-full h-full bg-gray-100">
+                      <svg className="w-16 h-16 text-gray-400 mb-2" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd"/>
+                      </svg>
+                      <p className="text-xs text-gray-600 text-center px-2 truncate w-full">{file.name}</p>
                     </div>
                   )}
                 </div>
@@ -592,11 +902,12 @@ export default function Home() {
               className="w-full h-10 bg-blue-500 cursor-pointer flex items-center justify-center text-white"
             >
               <FontAwesomeIcon icon={faImages} style={{ width: '20px', height: '20px' }} className="mr-2" />
-              选择图片
+              选择文件
             </label>
             <input
               id="file-upload"
               type="file"
+              accept="*/*"
               className="hidden"
               onChange={handleFileChange}
               multiple
@@ -604,7 +915,7 @@ export default function Home() {
           </div>
           <div className="md:col-span-5 col-span-8">
             <div className="w-full h-10 bg-slate-200 leading-10 px-4 text-center md:text-left">
-              已选择 {selectedFiles.length} 张，共 {getTotalSizeInMB(selectedFiles)} M
+              已选择 {selectedFiles.length} 个文件，共 {getTotalSizeInMB(selectedFiles)} M
             </div>
           </div>
           <div className="md:col-span-1 col-span-3">
@@ -632,40 +943,23 @@ export default function Home() {
 
         <ToastContainer />
         <div className="w-full mt-4 min-h-[200px] mb-[60px] ">
-
-          {
-            uploadedImages.length > 0 && (<>
-              <div className="flex flex-wrap gap-3 mb-4 border-b border-gray-300 ">
+          {uploadedImages.length > 0 && (
+            <>
+              <div className="mb-4 border-b border-gray-300 pb-2 flex justify-between items-center">
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-800">已上传的文件 (Markdown 格式)</h3>
+                  <p className="text-sm text-gray-500">点击链接即可复制</p>
+                </div>
                 <button
-                  onClick={() => setActiveTab('preview')}
-                  className={`px-4 py-2 ${activeTab === 'preview' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-800'}`}>
-                  Preview
-                </button>
-                <button
-                  onClick={() => setActiveTab('htmlLinks')}
-                  className={`px-4 py-2 ${activeTab === 'htmlLinks' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-800'}`}>
-                  HTML
-                </button>
-                <button
-                  onClick={() => setActiveTab('markdownLinks')}
-                  className={`px-4 py-2 ${activeTab === 'markdownLinks' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-800'}`}>
-                  Markdown
-                </button>
-                <button
-                  onClick={() => setActiveTab('bbcodeLinks')}
-                  className={`px-4 py-2 ${activeTab === 'bbcodeLinks' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-800'}`}>
-                  BBCode
-                </button>
-                <button
-                  onClick={() => setActiveTab('viewLinks')}
-                  className={`px-4 py-2 ${activeTab === 'viewLinks' ? 'bg-blue-500 text-white' : 'bg-gray-200 text-gray-800'}`}>
-                  Links
+                  onClick={handleCopyAll}
+                  className="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
+                >
+                  全部复制 ({uploadedImages.length})
                 </button>
               </div>
-              {renderTabContent()}
+              {renderUploadedImages()}
             </>
-            )
-          }
+          )}
         </div>
 
       </div>
@@ -695,13 +989,28 @@ export default function Home() {
                 className="object-cover w-9/10  h-auto rounded-lg"
                 controls
               />
+            ) : boxType === "audio" ? (
+              <div className="p-8 bg-white rounded-lg">
+                <div className="flex flex-col items-center">
+                  <svg className="w-24 h-24 text-gray-400 mb-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z"/>
+                  </svg>
+                  <audio controls className="w-full max-w-md">
+                    <source src={selectedImage} />
+                    Your browser does not support the audio element.
+                  </audio>
+                </div>
+              </div>
             ) : boxType === "other" ? (
-              // 这里可以渲染你想要的其他内容或组件
-              <div className="p-4 bg-white text-black rounded">
-                <p>Unsupported file type</p>
+              <div className="p-8 bg-white rounded-lg">
+                <div className="flex flex-col items-center">
+                  <svg className="w-24 h-24 text-gray-400 mb-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z" clipRule="evenodd"/>
+                  </svg>
+                  <p className="text-gray-700">无法预览此文件类型</p>
+                </div>
               </div>
             ) : (
-              // 你可以选择一个默认的内容或者返回 null
               <div>未知类型</div>
             )}
           </div>
