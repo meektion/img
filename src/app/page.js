@@ -1067,7 +1067,43 @@ export default function Home() {
                   全部复制 ({uploadedImages.length})
                 </button>
               </div>
-              {renderUploadedImages()}
+
+              {/* Tab Navigation */}
+              <div className="flex border-b border-gray-300 mb-4">
+                <button
+                  onClick={() => setActiveTab('preview')}
+                  className={`px-4 py-2 ${activeTab === 'preview' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-600'}`}
+                >
+                  预览
+                </button>
+                <button
+                  onClick={() => setActiveTab('viewLinks')}
+                  className={`px-4 py-2 ${activeTab === 'viewLinks' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-600'}`}
+                >
+                  直链
+                </button>
+                <button
+                  onClick={() => setActiveTab('markdownLinks')}
+                  className={`px-4 py-2 ${activeTab === 'markdownLinks' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-600'}`}
+                >
+                  Markdown
+                </button>
+                <button
+                  onClick={() => setActiveTab('htmlLinks')}
+                  className={`px-4 py-2 ${activeTab === 'htmlLinks' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-600'}`}
+                >
+                  HTML
+                </button>
+                <button
+                  onClick={() => setActiveTab('bbcodeLinks')}
+                  className={`px-4 py-2 ${activeTab === 'bbcodeLinks' ? 'border-b-2 border-blue-500 text-blue-600' : 'text-gray-600'}`}
+                >
+                  BBCode
+                </button>
+              </div>
+
+              {/* Tab Content */}
+              {renderTabContent()}
             </>
           )}
         </div>
