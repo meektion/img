@@ -53,9 +53,8 @@ export async function GET(request) {
 async function insertImageData(env, src, referer, ip, rating, time) {
   try {
     const instdata = await env.prepare(
-      `INSERT INTO imginfo (url, referer, ip, rating, total, time)
-           VALUES ('${src}', '${referer}', '${ip}', ${rating}, 1, '${time}')`
-    ).run();
+      'INSERT INTO imginfo (url, referer, ip, rating, total, time) VALUES (?, ?, ?, ?, 1, ?)'
+    ).bind(src, referer, ip, rating, time).run();
   } catch (error) {
 
   }
