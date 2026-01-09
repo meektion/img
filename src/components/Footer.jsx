@@ -8,18 +8,18 @@ export default function Footer() {
   }, []);
 
   return (
-    <footer className="w-full h-full text-center flex flex-col justify-center items-center">
-      <div>
-        <p className="text-xs md:text-sm text-gray-600">
-          © {year}{' '}
-          <Link
+    <footer className="w-full  h-1/12 text-center  bg-slate-200  flex flex-col justify-center items-center">
+      <div >
+        <p className="text-xs text-gray-500">
+          © 2025-{year} Designed and developed by{' '}
+          <a
             href="https://134688.xyz"
             target="_blank"
             rel="noopener noreferrer"
-            className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent font-semibold hover:from-purple-600 hover:to-pink-600 transition-all"
+            className="text-blue-600 hover:text-blue-800 hover:underline"
           >
-            Jiang Sheng
-          </Link>
+            Shan Sheng
+          </a>
         </p>
       </div>
     </footer>
