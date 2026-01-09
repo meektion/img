@@ -752,16 +752,33 @@ export default function Home() {
           <div className="flex flex-col">
             {uploadedImages.map((data, index) => {
               const links = generateLinks(data);
+
+              // 根据文件类型决定显示哪些链接
+              let linkItems = [];
+              if (data.type.startsWith('image/')) {
+                // 图片：只显示 Markdown 和直链
+                linkItems = [
+                  { text: links.markdown, onClick: () => handleCopy(links.markdown), label: 'Markdown' },
+                  { text: links.direct, onClick: () => handleCopy(links.direct), label: '直链' },
+                ];
+              } else if (data.type.startsWith('video/') || data.type.startsWith('audio/')) {
+                // 视频/音频：只显示播放代码(HTML) 和直链
+                linkItems = [
+                  { text: links.html, onClick: () => handleCopy(links.html), label: '播放代码' },
+                  { text: links.direct, onClick: () => handleCopy(links.direct), label: '直链' },
+                ];
+              } else {
+                // 其他文件：只显示直链
+                linkItems = [
+                  { text: links.direct, onClick: () => handleCopy(links.direct), label: '直链' },
+                ];
+              }
+
               return (
                 <div key={index} className="m-2 rounded-2xl ring-offset-2 ring-2 ring-slate-100 flex flex-row">
                   {renderFile(data, index)}
                   <div className="flex flex-col justify-center w-4/5">
-                    {[
-                      { text: links.direct, onClick: () => handleCopy(links.direct), label: '直链' },
-                      { text: links.markdown, onClick: () => handleCopy(links.markdown), label: 'Markdown' },
-                      { text: links.html, onClick: () => handleCopy(links.html), label: 'HTML' },
-                      { text: links.bbcode, onClick: () => handleCopy(links.bbcode), label: 'BBCode' },
-                    ].map((item, i) => (
+                    {linkItems.map((item, i) => (
                       <input
                         key={`input-${i}`}
                         readOnly
@@ -1058,7 +1075,7 @@ export default function Home() {
               <div className="mb-4 border-b border-gray-300 pb-2 flex justify-between items-center">
                 <div>
                   <h3 className="text-lg font-semibold text-gray-800">已上传的文件</h3>
-                  <p className="text-sm text-gray-500">点击链接即可复制（图片提供 Markdown 和直链，视频/音频提供直链和 GitHub Issues 播放代码）</p>
+                  <p className="text-sm text-gray-500">点击链接即可复制（图片：Markdown + 直链 | 视频/音频：播放代码 + 直链 | 其他：直链）</p>
                 </div>
                 <button
                   onClick={handleCopyAll}
