@@ -1,5 +1,5 @@
 "use client";
-import { useState, useCallback } from "react";
+import { useState, useRef, useCallback } from "react";
 import { signOut } from "next-auth/react"
 import Image from "next/image";
 import { faImages, faTrashAlt, faUpload, faSearchPlus } from '@fortawesome/free-solid-svg-icons';
@@ -27,6 +27,7 @@ export default function Home() {
   const [uploadedImages, setUploadedImages] = useState([]);
   const [uploadedFilesNum, setUploadedFilesNum] = useState(0);
   const [selectedImage, setSelectedImage] = useState(null); // 添加状态用于跟踪选中的放大图片
+  const [activeTab, setActiveTab] = useState('preview'); // Tab标签页状态
   const [uploading, setUploading] = useState(false);
   const [IP, setIP] = useState('');
   const [Total, setTotal] = useState('?');
@@ -36,6 +37,8 @@ export default function Home() {
   const [boxType, setBoxtype] = useState("img");
   const [enableWebP, setEnableWebP] = useState(false); // WebP 转换开关（默认关闭）
   const [uploadPin, setUploadPin] = useState(''); // 上传密码
+
+  const parentRef = useRef(null); // 用于一键复制功能
 
   // 不同接口的文件大小限制
   const FILE_SIZE_LIMITS = {
@@ -231,7 +234,6 @@ export default function Home() {
 
   const handleClear = () => {
     setSelectedFiles([]);
-    setUploadStatus('');
     setUploadedImages([]);
   };
 
@@ -599,20 +601,30 @@ export default function Home() {
 
       // 根据文件类型生成不同的链接格式
       const allLinks = uploadedImages.map(data => {
+        let links = [];
+
         if (data.type.startsWith('image/')) {
-          return `![${data.name}](${data.url})`;
+          // 图片：Markdown 链接 和 直链
+          links.push(`![${data.name}](${data.url})`);
+          links.push(data.url);
         } else if (data.type.startsWith('video/')) {
-          return `<video src="${data.url}" controls style="max-width: 100%; height: auto;"></video>`;
+          // 视频：直链 和 GitHub Issues 可播放的 HTML
+          links.push(data.url);
+          links.push(`<video src="${data.url}" controls style="max-width: 100%; height: auto;"></video>`);
         } else if (data.type.startsWith('audio/')) {
-          return `<audio src="${data.url}" controls></audio>`;
+          // 音频：直链 和 GitHub Issues 可播放的 HTML
+          links.push(data.url);
+          links.push(`<audio src="${data.url}" controls></audio>`);
         } else {
-          // 其他文件类型直接返回URL
-          return data.url;
+          // 其他类型：可下载的直链
+          links.push(data.url);
         }
-      }).join('\n');
+
+        return links.join('\n');
+      }).join('\n\n');
 
       await navigator.clipboard.writeText(allLinks);
-      toast.success(`已复制 ${uploadedImages.length} 个文件链接`);
+      toast.success(`已复制 ${uploadedImages.length} 个文件的所有链接`);
     } catch (err) {
       toast.error("复制失败")
     }
@@ -679,49 +691,147 @@ export default function Home() {
         </div>
       );
     }
-
-
-
   };
 
 
-  const renderUploadedImages = () => {
-    return (
-      <div className="flex flex-col">
-        {uploadedImages.map((data, index) => {
-          // 根据文件类型生成不同的链接格式
-          let linkText, linkTitle;
-          if (data.type.startsWith('image/')) {
-            linkText = `![${data.name}](${data.url})`;
-            linkTitle = '点击复制 Markdown 链接';
-          } else if (data.type.startsWith('video/')) {
-            linkText = `<video src="${data.url}" controls style="max-width: 100%; height: auto;"></video>`;
-            linkTitle = '点击复制 HTML video 标签';
-          } else if (data.type.startsWith('audio/')) {
-            linkText = `<audio src="${data.url}" controls></audio>`;
-            linkTitle = '点击复制 HTML audio 标签';
-          } else {
-            linkText = data.url;
-            linkTitle = '点击复制直链';
-          }
+  // 一键复制所有链接
+  const handleCopyCode = async () => {
+    if (!parentRef.current) return;
 
-          return (
-            <div key={index} className="m-2 rounded-2xl ring-offset-2 ring-2 ring-slate-100 flex flex-row">
-              {renderFile(data, index)}
-              <div className="flex flex-col justify-center w-4/5">
-                <input
-                  readOnly
-                  value={linkText}
-                  onClick={() => handleCopy(linkText)}
-                  className="px-3 my-1 py-2 border border-gray-300 rounded-lg bg-white text-sm text-gray-800 focus:outline-none placeholder-gray-400 cursor-pointer hover:bg-gray-50"
-                  title={linkTitle}
-                />
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    );
+    const codeElements = parentRef.current.querySelectorAll('code');
+    const values = Array.from(codeElements).map(code => code.textContent);
+    try {
+      await navigator.clipboard.writeText(values.join("\n"));
+      toast.success(`已复制 ${values.length} 个链接`);
+    } catch (error) {
+      toast.error(`复制失败: ${error}`)
+    }
+  };
+
+  // 根据文件类型生成智能链接
+  const generateLinks = (data) => {
+    const { url, name, type } = data;
+
+    if (type.startsWith('image/')) {
+      return {
+        direct: url,
+        markdown: `![${name}](${url})`,
+        html: `<img src="${url}" alt="${name}" />`,
+        bbcode: `[img]${url}[/img]`
+      };
+    } else if (type.startsWith('video/')) {
+      return {
+        direct: url,
+        markdown: url, // Markdown 不直接支持视频，返回直链
+        html: `<video src="${url}" controls style="max-width: 100%; height: auto;"></video>`,
+        bbcode: url // BBCode 通常不支持视频，返回直链
+      };
+    } else if (type.startsWith('audio/')) {
+      return {
+        direct: url,
+        markdown: url, // Markdown 不直接支持音频，返回直链
+        html: `<audio src="${url}" controls></audio>`,
+        bbcode: url // BBCode 通常不支持音频，返回直链
+      };
+    } else {
+      // 其他文件类型只返回直链
+      return {
+        direct: url,
+        markdown: `[${name}](${url})`,
+        html: `<a href="${url}">${name}</a>`,
+        bbcode: `[url=${url}]${name}[/url]`
+      };
+    }
+  };
+
+  // Tab内容渲染
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'preview':
+        return (
+          <div className="flex flex-col">
+            {uploadedImages.map((data, index) => {
+              const links = generateLinks(data);
+              return (
+                <div key={index} className="m-2 rounded-2xl ring-offset-2 ring-2 ring-slate-100 flex flex-row">
+                  {renderFile(data, index)}
+                  <div className="flex flex-col justify-center w-4/5">
+                    {[
+                      { text: links.direct, onClick: () => handleCopy(links.direct), label: '直链' },
+                      { text: links.markdown, onClick: () => handleCopy(links.markdown), label: 'Markdown' },
+                      { text: links.html, onClick: () => handleCopy(links.html), label: 'HTML' },
+                      { text: links.bbcode, onClick: () => handleCopy(links.bbcode), label: 'BBCode' },
+                    ].map((item, i) => (
+                      <input
+                        key={`input-${i}`}
+                        readOnly
+                        value={item.text}
+                        onClick={item.onClick}
+                        className="px-3 my-1 py-2 border border-gray-300 rounded-lg bg-white text-sm text-gray-800 focus:outline-none placeholder-gray-400 cursor-pointer hover:bg-gray-50"
+                        title={`点击复制 ${item.label}`}
+                      />
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        );
+      case 'htmlLinks':
+        return (
+          <div ref={parentRef} className="p-4 bg-slate-100" onClick={handleCopyCode}>
+            {uploadedImages.map((data, index) => {
+              const links = generateLinks(data);
+              return (
+                <div key={index} className="mb-2">
+                  <code className="w-2 break-all">{links.html}</code>
+                </div>
+              );
+            })}
+          </div>
+        );
+      case 'markdownLinks':
+        return (
+          <div ref={parentRef} className="p-4 bg-slate-100" onClick={handleCopyCode}>
+            {uploadedImages.map((data, index) => {
+              const links = generateLinks(data);
+              return (
+                <div key={index} className="mb-2">
+                  <code className="w-2 break-all">{links.markdown}</code>
+                </div>
+              );
+            })}
+          </div>
+        );
+      case 'bbcodeLinks':
+        return (
+          <div ref={parentRef} className="p-4 bg-slate-100" onClick={handleCopyCode}>
+            {uploadedImages.map((data, index) => {
+              const links = generateLinks(data);
+              return (
+                <div key={index} className="mb-2">
+                  <code className="w-2 break-all">{links.bbcode}</code>
+                </div>
+              );
+            })}
+          </div>
+        );
+      case 'viewLinks':
+        return (
+          <div ref={parentRef} className="p-4 bg-slate-100" onClick={handleCopyCode}>
+            {uploadedImages.map((data, index) => {
+              const links = generateLinks(data);
+              return (
+                <div key={index} className="mb-2">
+                  <code className="w-2 break-all">{links.direct}</code>
+                </div>
+              );
+            })}
+          </div>
+        );
+      default:
+        return null;
+    }
   };
 
   const handleSelectChange = (e) => {
@@ -947,8 +1057,8 @@ export default function Home() {
             <>
               <div className="mb-4 border-b border-gray-300 pb-2 flex justify-between items-center">
                 <div>
-                  <h3 className="text-lg font-semibold text-gray-800">已上传的文件 (Markdown 格式)</h3>
-                  <p className="text-sm text-gray-500">点击链接即可复制</p>
+                  <h3 className="text-lg font-semibold text-gray-800">已上传的文件</h3>
+                  <p className="text-sm text-gray-500">点击链接即可复制（图片提供 Markdown 和直链，视频/音频提供直链和 GitHub Issues 播放代码）</p>
                 </div>
                 <button
                   onClick={handleCopyAll}
