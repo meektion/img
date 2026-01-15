@@ -42,8 +42,8 @@ export default function Home() {
 
   // 不同接口的文件大小限制
   const FILE_SIZE_LIMITS = {
-    'tgchannel': 50 * 1024 * 1024,   // 50 MB - Telegram Bot API 限制
     'r2': 100 * 1024 * 1024,         // 100 MB - Cloudflare R2 限制
+    'tgchannel': 50 * 1024 * 1024,   // 50 MB - Telegram Bot API 限制
   };
 
   // 获取当前接口的大小限制
