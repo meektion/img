@@ -31,7 +31,7 @@ export default function Home() {
   const [uploading, setUploading] = useState(false);
   const [IP, setIP] = useState('');
   const [Total, setTotal] = useState('?');
-  const [selectedOption, setSelectedOption] = useState('tgchannel'); // 默认 TG_Channel
+  const [selectedOption, setSelectedOption] = useState('r2'); // 默认 R2
   const [isAuthapi, setisAuthapi] = useState(false);
   const [Loginuser, setLoginuser] = useState('');
   const [boxType, setBoxtype] = useState("img");
@@ -913,8 +913,8 @@ export default function Home() {
                 onChange={handleSelectChange}
                 className="px-3 py-1.5 border border-gray-300 rounded bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
-                <option value="tgchannel">Telegram (50MB)</option>
-                <option value="r2">R2 (100MB)</option>
+                <option value="tgchannel">Telegram</option>
+                <option value="r2">R2</option>
               </select>
             </div>
 
@@ -1068,7 +1068,18 @@ export default function Home() {
         </div>
 
 
-        <ToastContainer />
+        <ToastContainer
+          position="top-center"
+          autoClose={3000}
+          hideProgressBar={false}
+          newestOnTop
+          closeOnClick
+          rtl={false}
+          pauseOnFocusLoss
+          draggable
+          pauseOnHover
+          theme="light"
+        />
         <div className="w-full mt-4 min-h-[200px] mb-[60px] ">
           {uploadedImages.length > 0 && (
             <>
